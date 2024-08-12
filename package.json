@@ -3,13 +3,26 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "lint": "bunx eslint .",
+    "lint:fix": "bunx eslint . --fix"
   },
   "dependencies": {
-    "elysia": "latest"
+    "@elysiajs/cors": "^1.1.0",
+    "@elysiajs/swagger": "^1.1.0",
+    "@prisma/client": "^5.18.0",
+    "elysia": "latest",
+    "pino": "^9.3.2",
+    "pino-pretty": "^11.2.2"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "@eslint/js": "^9.9.0",
+    "bun-types": "latest",
+    "eslint": "9.x",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "globals": "^15.9.0",
+    "prisma": "^5.18.0",
+    "typescript-eslint": "^8.0.1"
   },
   "module": "src/index.js"
 }
