@@ -1,7 +1,9 @@
 import cors from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
 import { Elysia } from "elysia";
+import authController from "./controllers/auth.controller";
 import userController from "./controllers/user.controller";
+import healthCheckController from "./controllers/health.controller";
 
 const app = new Elysia()
   .use(
@@ -15,6 +17,8 @@ const app = new Elysia()
     })
   )
   .use(cors())
+  .use(healthCheckController)
+  .use(authController)
   .use(userController)
   .get("/", () => "Hello Elysia")
   .listen(Bun.env.PORT || 4000);

@@ -1,6 +1,8 @@
+import UserRepository from "@/repositories/user.repository";
+
 const UserService = {
-  async getUser() {
-    return { name: "John Doe" };
+  async getUserById(id: string) {
+    return await UserRepository.findById(id as string);
   },
 };
 

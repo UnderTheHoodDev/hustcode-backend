@@ -7,17 +7,16 @@ const apiOptions = {
     tags: ["User"],
   },
 };
-const userController = new Elysia({ prefix: "/api/user" })
+const userController = new Elysia({ prefix: "/api/v1/user" })
   .use(authMiddleware)
   .get(
     "/",
-    async ({ set }) => {
+    async ({ set, user }) => {
       set.status = "OK";
-      const user = await UserService.getUser();
+      // const user = await UserService.getUser();
       return user;
     },
     apiOptions
   )
-  .get("/:id", ({ params }) => `Hello User ${params.id}`, apiOptions);
 
 export default userController;

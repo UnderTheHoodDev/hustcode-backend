@@ -9,14 +9,17 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.1.0",
+    "@elysiajs/jwt": "^1.1.0",
     "@elysiajs/swagger": "^1.1.0",
     "@prisma/client": "^5.18.0",
     "elysia": "latest",
+    "nodemailer": "^6.9.14",
     "pino": "^9.3.2",
     "pino-pretty": "^11.2.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
+    "@types/nodemailer": "^6.4.15",
     "bun-types": "latest",
     "eslint": "9.x",
     "eslint-config-airbnb-base": "^15.0.0",

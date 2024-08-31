@@ -45,13 +45,13 @@ model User {
   id            String           @id @default(cuid())
   email         String           @unique
   name          String?
-  password      String
   rating        Int?
   contributions Int?
   problems      Problem[]
   role          UserRole         @default(USER)
   comments      ProblemComment[]
   submissions   Submission[]
+  refreshToken  String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 }
