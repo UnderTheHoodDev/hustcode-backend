@@ -6,12 +6,20 @@ import {
   SwaggerModule,
 } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api');
+  app.use(cookieParser());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('HustCode API Docs')
@@ -31,6 +39,11 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('port') || 3000;
+
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  });
 
   await app.listen(port, () => {
     Logger.log(`Server is running at http://localhost:${port}`);
