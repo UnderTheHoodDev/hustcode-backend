@@ -6,6 +6,9 @@ services:
       - ./nginx/default.conf:/etc/nginx/nginx.conf
       - /etc/letsencrypt/:/etc/letsencrypt/:ro
       - /var/www/certbot/:/var/www/certbot/:rw
+    ports:
+      - 80:80
+      - 443:443
     networks:
       hustcode_api_backend:
       nginx_master_proxy:
