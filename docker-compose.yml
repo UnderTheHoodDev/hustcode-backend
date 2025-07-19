@@ -1,0 +1,61 @@
+services:
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/nginx.conf
+      - /etc/letsencrypt/:/etc/letsencrypt/:ro
+      - /var/www/certbot/:/var/www/certbot/:rw
+    networks:
+      hustcode_api_backend:
+      nginx_master_proxy:
+        aliases:
+          - hustcode_api_nginx
+    depends_on:
+      - node_app
+
+  certbot:
+    image: certbot/dns-cloudflare:latest
+    volumes:
+      - /var/www/certbot/:/var/www/certbot/:rw
+      - /etc/letsencrypt/:/etc/letsencrypt/:rw
+      - /.secrets/certbot/cloudflare.ini:/.secrets/certbot/cloudflare.ini
+
+  node_app:
+    build: .
+    container_name: hustcode_api_node_app
+    restart: unless-stopped
+    volumes:
+      - node_app:/app/tmp
+    networks:
+      - hustcode_api_backend
+    expose:
+      - 4000
+    env_file:
+      - .env
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    container_name: hustcode_api_database
+    networks:
+      - hustcode_api_backend
+    restart: unless-stopped
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    env_file:
+      - .env
+
+volumes:
+  node_app:
+  postgresql-data:
+
+networks:
+  hustcode_api_backend:
+    driver: bridge
+  nginx_master_proxy:
+    external: true
+    name: nginx_master_proxy
