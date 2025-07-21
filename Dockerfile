@@ -7,7 +7,7 @@ COPY . .
 RUN yarn build
 
 RUN yarn prisma generate
-RUN yarn prisma migrate deploy
+
 EXPOSE 4000
 
 CMD ["yarn", "start:prod"]
