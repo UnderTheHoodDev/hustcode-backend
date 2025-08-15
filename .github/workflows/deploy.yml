@@ -27,10 +27,13 @@ jobs:
 
       - name: Build & Deploy on server
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: ENV_FILE
           script_stop: true
           script: |
             # Safer bash options: exit on error, undefined vars, and pipeline failures
@@ -58,6 +61,18 @@ jobs:
               "$TMP_DIR"/ "$APP_DIR"/
 
             cd "$APP_DIR"
+
+            # Ensure .env exists in APP_DIR; if missing, try to create it from ENV_FILE secret
+            if [ ! -f .env ]; then
+              if [ -n "${ENV_FILE:-}" ]; then
+                printf '%s' "$ENV_FILE" > .env
+                chmod 640 .env
+                echo ".env was created from secret."
+              else
+                echo "ERROR: .env not found at $APP_DIR/.env and ENV_FILE secret is not provided."
+                exit 1
+              fi
+            fi
 
             # Enable BuildKit for faster and better-cached builds
             export DOCKER_BUILDKIT=1
