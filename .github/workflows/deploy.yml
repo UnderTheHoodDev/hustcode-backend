@@ -64,10 +64,10 @@ jobs:
             export COMPOSE_DOCKER_CLI_BUILD=1
 
             # Build image from the repository's Dockerfile (pull latest base images)
-            docker compose build --pull
+            docker-compose build --pull
 
             # Start the database first so we can run migrations
-            docker compose up -d db
+            docker-compose up -d db
 
             # Wait until Postgres is ready (expand env vars inside the container)
             until docker compose exec -T db sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1; do
@@ -75,10 +75,10 @@ jobs:
             done
 
             # Run Prisma migrations (safe, no destructive resets; prints 'No pending migrations' if none)
-            docker compose run --rm node_app yarn prisma migrate deploy
+            docker-compose run --rm node_app yarn prisma migrate deploy
 
             # Start/rollout all services and remove orphaned containers
-            docker compose up -d --remove-orphans
+            docker-compose up -d --remove-orphans
 
             # Cleanup unused images and temporary files
             docker image prune -f
