@@ -1,0 +1,83 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Pack source (exclude VCS & node_modules)
+        run: |
+          tar --exclude-vcs --exclude=node_modules -czf source.tgz .
+
+      - name: Upload source.tgz to server (/tmp)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "source.tgz"
+          target: "/tmp"
+
+      - name: Build & Deploy on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          script: |
+            # Safer bash options: exit on error, undefined vars, and pipeline failures
+            set -euo pipefail
+
+            APP_DIR=/var/www/hustcode-backend
+            TMP_DIR=/tmp/deploy_extract
+
+            # Prepare a clean temp directory to extract source (avoid half-written states)
+            rm -rf "$TMP_DIR"
+            mkdir -p "$TMP_DIR"
+            tar -xzf /tmp/source.tgz -C "$TMP_DIR"
+
+            # Ensure application directory exists on the server
+            mkdir -p "$APP_DIR"
+
+            # Sync source to the application directory (do not touch server-only files)
+            # -a: archive mode, -v: verbose, --delete: remove files that no longer exist in source (use with care)
+            # --exclude: preserve important files/dirs that live only on the server
+            rsync -av --delete \
+              --exclude ".env" \
+              --exclude "node_modules" \
+              "$TMP_DIR"/ "$APP_DIR"/
+
+            cd "$APP_DIR"
+
+            # Enable BuildKit for faster and better-cached builds
+            export DOCKER_BUILDKIT=1
+            export COMPOSE_DOCKER_CLI_BUILD=1
+
+            # Build image from the repository's Dockerfile (pull latest base images)
+            docker compose build --pull
+
+            # Start the database first so we can run migrations
+            docker compose up -d db
+
+            # Wait until Postgres is ready (expand env vars inside the container)
+            until docker compose exec -T db sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1; do
+              sleep 2
+            done
+
+            # Run Prisma migrations (safe, no destructive resets; prints 'No pending migrations' if none)
+            docker compose run --rm node_app yarn prisma migrate deploy
+
+            # Start/rollout all services and remove orphaned containers
+            docker compose up -d --remove-orphans
+
+            # Cleanup unused images and temporary files
+            docker image prune -f
+            rm -rf "$TMP_DIR" /tmp/source.tgz
