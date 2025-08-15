@@ -44,10 +44,10 @@ jobs:
             mkdir -p "$TMP_DIR"
             tar -xzf /tmp/source.tgz -C "$TMP_DIR"
 
-            whoami
+            echo "$USER"
 
             # Ensure application directory exists on the server
-            # mkdir -p "$APP_DIR"
+            mkdir -p "$APP_DIR"
 
             # Sync source to the application directory (do not touch server-only files)
             # -a: archive mode, -v: verbose, --delete: remove files that no longer exist in source (use with care)
