@@ -44,6 +44,8 @@ jobs:
             mkdir -p "$TMP_DIR"
             tar -xzf /tmp/source.tgz -C "$TMP_DIR"
 
+            whoami
+
             # Ensure application directory exists on the server
             mkdir -p "$APP_DIR"
 
