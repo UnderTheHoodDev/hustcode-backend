@@ -1,4 +1,4 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
 import { Request } from 'express';
@@ -13,4 +13,10 @@ export class UserController {
     const userId = req.user.id;
     return this.userService.getUser(userId);
   }
+
+  @Get('profile/:id')
+  async getUserProfile(@Param('id') id: string) {
+    return this.userService.getUser(id);
+  }
+
 }
