@@ -7,6 +7,7 @@ import configuration from 'config/configuration';
 import { validationSchema } from 'config/validation';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
+import { ProblemModule } from './problem/problem.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UserModule } from './user/user.module';
     PrismaModule,
     AuthModule,
     UserModule,
+    ProblemModule,
   ],
   controllers: [AppController],
   providers: [AppService],
