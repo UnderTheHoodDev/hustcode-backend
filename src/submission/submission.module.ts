@@ -7,5 +7,6 @@ import { HttpModule } from '@nestjs/axios';
   imports: [HttpModule],
   controllers: [SubmissionController],
   providers: [SubmissionService],
+  exports: [SubmissionService],
 })
 export class SubmissionModule {}
