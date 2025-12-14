@@ -46,6 +46,8 @@ export class SubmissionService {
       );
 
       const result = response.data;
+
+      console.log('DEBUG: RESULT IS: ', result);
       
       this.logger.log(`Submission completed with status: ${result.status}`);
       

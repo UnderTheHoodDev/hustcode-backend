@@ -7,8 +7,9 @@ import configuration from 'config/configuration';
 import { validationSchema } from 'config/validation';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
-import { SubmissionModule } from './submission/submission.module';
 import { ProblemModule } from './problem/problem.module';
+import { SubmissionModule } from './submission/submission.module';
+import { ProblemSubmissionModule } from './problem-submission/problem-submission.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ProblemModule } from './problem/problem.module';
     UserModule,
     ProblemModule,
     SubmissionModule,
+    ProblemSubmissionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
