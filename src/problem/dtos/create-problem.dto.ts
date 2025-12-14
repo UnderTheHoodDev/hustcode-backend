@@ -39,7 +39,7 @@ export class CreateSolutionDto {
   @IsNotEmpty()
   code: string;
 
-  @ApiProperty({ example: 'python-id-here', description: 'Language ID (cuid)' })
+  @ApiProperty({ example: '1', description: 'Language ID' })
   @IsString()
   @IsNotEmpty()
   languageId: string;

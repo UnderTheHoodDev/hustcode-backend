@@ -3,17 +3,20 @@ import { ProblemService } from './problem.service';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CreateProblemDto, UpdateProblemDto } from './dtos/create-problem.dto';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
-import { Difficulty, ProblemStatus } from '@prisma/client';
+import { Difficulty, ProblemStatus, UserRole } from '@prisma/client';
 import { ProblemDifficulty } from './enum/problem-difficulty.enum';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @ApiTags('problem')
 @Controller('problem')
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, RolesGuard)
 export class ProblemController {
   constructor(private readonly problemService: ProblemService) {}
 
   // Create a new problem
   @Post()
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new problem' })
   @ApiResponse({ 
     status: 201, 
@@ -110,6 +113,7 @@ export class ProblemController {
 
   // Update a problem
   @Patch(':id')
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update a problem' })
   @ApiParam({ name: 'id', type: 'string', example: 'clxxx123456789' })
   @ApiResponse({
@@ -130,6 +134,7 @@ export class ProblemController {
 
   // Delete a problem 
   @Delete(':id')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a problem' })
   @ApiParam({ name: 'id', type: 'string', example: 'clxxx123456789' })
