@@ -193,5 +193,51 @@ export class ProblemSubmissionService {
       throw error;
     }
   }
-  
+
+  // Get User Submissions with Pagination and Filtering
+  async getUserSubmissions(userId: string, params?: {
+    skip?: number;
+    take?: number;
+    problemId?: string;
+    status?: SubmissionStatus;
+  }) {
+    const where: any = { userId };
+
+    if (params?.problemId) {
+      where.problemId = params.problemId;
+    }
+
+    if (params?.status) {
+      where.status = params.status;
+    }
+
+    const [submissions, total] = await Promise.all([
+      this.prisma.submission.findMany({
+        where,
+        skip: params?.skip || 0,
+        take: params?.take || 20,
+        orderBy: { submittedAt: 'desc' },
+        include: {
+          problem: {
+            select: {
+              id: true,
+              title: true,
+              difficulty: true,
+            },
+          },
+          language: true,
+        },
+      }),
+      this.prisma.submission.count({ where }),
+    ]);
+
+    return {
+      data: submissions,
+      total,
+      page: Math.floor((params?.skip || 0) / (params?.take || 20)) + 1,
+      pageSize: params?.take || 20,
+      totalPages: Math.ceil(total / (params?.take || 20)),
+    };
+  }
+
 }
