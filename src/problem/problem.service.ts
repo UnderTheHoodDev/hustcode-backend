@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateProblemDto } from './dtos/create-problem.dto';
-import { ProblemStatus } from '@prisma/client';
+import { Problem, ProblemStatus } from '@prisma/client';
 import { ProblemDifficulty } from './enum/problem-difficulty.enum';
 
 @Injectable()
@@ -109,13 +109,14 @@ export class ProblemService {
   }
 
   // Find all problems with pagination and filters
-  async findAllProblem(params?: {
+  async findAll(params?: {
     skip?: number;
     take?: number;
     difficulty?: ProblemDifficulty;
     tags?: string[];
     status?: ProblemStatus;
     search?: string;
+    userId?: string; // Add userId to get user's solve status
   }) {
     const where: any = {};
 
@@ -171,8 +172,62 @@ export class ProblemService {
       this.prisma.problem.count({ where }),
     ]);
 
+    // If userId is provided, get user's submission status for each problem
+    let problemsWithStatus = problems;
+    
+    if (params?.userId) {
+      // Get all submissions for this user for these problems
+      const problemIds = problems.map(p => p.id);
+      
+      const userSubmissions = await this.prisma.submission.findMany({
+        where: {
+          userId: params.userId,
+          problemId: { in: problemIds },
+        },
+        select: {
+          problemId: true,
+          status: true,
+        },
+      });
+
+      // Create a map of problemId -> user's best status
+      const problemStatusMap = new Map<string, 'Solved' | 'Attempted' | 'Unsolved'>();
+      
+      // Initialize all problems as Unsolved
+      problemIds.forEach(id => problemStatusMap.set(id, 'Unsolved'));
+      
+      // Update status based on submissions
+      userSubmissions.forEach(sub => {
+        const currentStatus = problemStatusMap.get(sub.problemId);
+        
+        // If already Solved, keep it Solved
+        if (currentStatus === 'Solved') return;
+        
+        // If submission is ACCEPTED, mark as Solved
+        if (sub.status === 'ACCEPTED') {
+          problemStatusMap.set(sub.problemId, 'Solved');
+        } 
+        // If not ACCEPTED but has attempted, mark as Attempted
+        else if (currentStatus === 'Unsolved') {
+          problemStatusMap.set(sub.problemId, 'Attempted');
+        }
+      });
+
+      // Add userStatus to each problem
+      problemsWithStatus = problems.map(problem => ({
+        ...problem,
+        userStatus: problemStatusMap.get(problem.id) || 'Unsolved',
+      }));
+    } else {
+      // If no userId, all problems are Unsolved for this user
+      problemsWithStatus = problems.map(problem => ({
+        ...problem,
+        userStatus: 'Unsolved' as const,
+      }));
+    }
+
     return {
-      data: problems,
+      data: problemsWithStatus,
       total,
       page: Math.floor((params?.skip || 0) / (params?.take || 10)) + 1,
       pageSize: params?.take || 10,
@@ -180,6 +235,7 @@ export class ProblemService {
     };
   }
 
+  // Find problem by ID
   async findOne(id: string) {
     const problem = await this.prisma.problem.findUnique({
       where: { id },

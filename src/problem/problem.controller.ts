@@ -40,8 +40,8 @@ export class ProblemController {
   @ApiQuery({ 
     name: 'difficulty', 
     required: false, 
-    enum: ProblemDifficulty,
-    example: ProblemDifficulty.EASY
+    enum: Difficulty,
+    example: Difficulty.EASY 
   })
   @ApiQuery({ 
     name: 'tags', 
@@ -64,7 +64,7 @@ export class ProblemController {
   })
   @ApiResponse({
     status: 200,
-    description: 'List of problems retrieved successfully',
+    description: 'List of problems retrieved successfully. Each problem includes userStatus: Solved (user has ACCEPTED submission), Attempted (user has submissions but none ACCEPTED), or Unsolved (no submissions)',
   })
   async findAll(
     @Query('page') page?: string,
@@ -73,6 +73,7 @@ export class ProblemController {
     @Query('tags') tags?: string | string[],
     @Query('status') status?: ProblemStatus,
     @Query('search') search?: string,
+    @Req() req?: any,
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const pageSizeNum = pageSize ? parseInt(pageSize, 10) : 10;
@@ -84,13 +85,17 @@ export class ProblemController {
       tagsArray = Array.isArray(tags) ? tags : [tags];
     }
 
-    return this.problemService.findAllProblem({
+    // Get userId from JWT token
+    const userId = req?.user?.id;
+
+    return this.problemService.findAll({
       skip,
       take: pageSizeNum,
       difficulty,
       tags: tagsArray,
       status,
       search,
+      userId,
     });
   }
 
