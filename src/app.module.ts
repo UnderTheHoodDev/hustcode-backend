@@ -10,6 +10,8 @@ import { UserModule } from './user/user.module';
 import { ProblemModule } from './problem/problem.module';
 import { SubmissionModule } from './submission/submission.module';
 import { ProblemSubmissionModule } from './problem-submission/problem-submission.module';
+import { UploadTestcaseModule } from './upload-testcase/upload-testcase.module';
+import { LanguageModule } from './language/language.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { ProblemSubmissionModule } from './problem-submission/problem-submission
     ProblemModule,
     SubmissionModule,
     ProblemSubmissionModule,
+    UploadTestcaseModule,
+    LanguageModule,
   ],
   controllers: [AppController],
   providers: [AppService],
