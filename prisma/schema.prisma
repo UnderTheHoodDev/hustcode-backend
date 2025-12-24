@@ -41,6 +41,17 @@ enum SubmissionStatus {
   COMPILATION_ERROR
 }
 
+enum ContestStatus {
+  UPCOMING
+  RUNNING
+  FINISHED
+}
+
+enum ContestType {
+  INDIVIDUAL
+  TEAM
+}
+
 model User {
   id            String           @id @default(cuid())
   email         String           @unique
@@ -53,6 +64,9 @@ model User {
   comments      ProblemComment[]
   submissions   Submission[]
   refreshToken  String?
+  createdContests Contest[]      @relation("ContestCreator")
+  allowedContests Contest[]    @relation("ContestParticipants")
+  contestParticipation ContestParticipant[] @relation("ContestParticipation")
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 }
@@ -75,6 +89,7 @@ model Problem {
   solution          Solution?
   problemConstrain  ProblemConstrain?
   comments          ProblemComment[]
+  contestProblems   ContestProblem[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 }
@@ -92,6 +107,8 @@ model Submission {
   consumedTime   Int?
   consumedMemory Int?
   failedTests    Testcase[]
+  contest        Contest?         @relation(fields: [contestId], references: [id])
+  contestId      String?
   submittedAt    DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
@@ -158,4 +175,55 @@ model Tag {
   problems  Problem[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+// ===================== CONTEST MODELS =========================
+
+model Contest {
+  id           String               @id @default(cuid())
+  title        String
+  description  String
+  startTime    DateTime
+  endTime      DateTime
+  duration     Int                  // Duration in minutes
+  status       ContestStatus        @default(UPCOMING)
+  type         ContestType          @default(INDIVIDUAL)
+  isPublic     Boolean              @default(true)
+  allowedUsers User[]               @relation("ContestParticipants")
+  createdBy    User                 @relation("ContestCreator", fields: [createdById], references: [id])
+  createdById  String
+  problems     ContestProblem[]
+  participants ContestParticipant[]
+  submissions  Submission[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model ContestProblem {
+  id        String   @id @default(cuid())
+  contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  contestId String
+  problem   Problem  @relation(fields: [problemId], references: [id])
+  problemId String
+  order     Int      // Display order (1 = A, 2 = B, etc.)
+  points    Int      @default(100)
+  createdAt DateTime @default(now())
+
+  @@unique([contestId, problemId])
+  @@unique([contestId, order])
+}
+
+model ContestParticipant {
+  id          String   @id @default(cuid())
+  contest     Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  contestId   String
+  user        User     @relation("ContestParticipation", fields: [userId], references: [id])
+  userId      String
+  totalScore  Int      @default(0)
+  totalTime   Int      @default(0) // Penalty time in seconds
+  rank        Int?
+  solvedCount Int      @default(0)
+  joinedAt    DateTime @default(now())
+
+  @@unique([contestId, userId])
 }
