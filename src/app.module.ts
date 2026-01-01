@@ -12,6 +12,7 @@ import { SubmissionModule } from './submission/submission.module';
 import { ProblemSubmissionModule } from './problem-submission/problem-submission.module';
 import { UploadTestcaseModule } from './upload-testcase/upload-testcase.module';
 import { LanguageModule } from './language/language.module';
+import { ContestModule } from './contest/contest.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { LanguageModule } from './language/language.module';
     ProblemSubmissionModule,
     UploadTestcaseModule,
     LanguageModule,
+    ContestModule,
   ],
   controllers: [AppController],
   providers: [AppService],

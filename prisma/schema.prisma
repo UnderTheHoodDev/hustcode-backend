@@ -30,6 +30,11 @@ enum ProblemStatus {
   REJECTED
 }
 
+enum ProblemVisibility {
+  PUBLIC
+  CONTEST_ONLY
+}
+
 enum SubmissionStatus {
   PENDING
   RUNNING
@@ -47,102 +52,105 @@ enum ContestStatus {
   FINISHED
 }
 
-enum ContestType {
-  INDIVIDUAL
-  TEAM
-}
-
 model User {
-  id            String           @id @default(cuid())
-  email         String           @unique
-  name          String?
-  password      String
-  rating        Int?
-  contributions Int?
-  problems      Problem[]
-  role          UserRole         @default(USER)
-  comments      ProblemComment[]
-  submissions   Submission[]
-  refreshToken  String?
-  createdContests Contest[]      @relation("ContestCreator")
-  allowedContests Contest[]    @relation("ContestParticipants")
-  contestParticipation ContestParticipant[] @relation("ContestParticipation")
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id                   String                 @id @default(cuid())
+  email                String                 @unique
+  name                 String?
+  password             String
+  rating               Int?
+  contributions        Int?
+  problems             Problem[]
+  role                 UserRole               @default(USER)
+  comments             ProblemComment[]
+  submissions          Submission[]
+  refreshToken         String?
+  createdContests      Contest[]
+  contestParticipation ContestParticipant[]
+  invitedContests      ContestInvitation[]
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
 }
 
 model Problem {
-  id                String            @id @default(cuid())
-  title             String
-  description       String
-  tags              Tag[]
-  difficulty        Difficulty        @default(EASY)
-  taskDescription   String
-  inputDescription  String
-  outputDescription String
-  status            ProblemStatus     @default(PENDING)
-  author            User              @relation(fields: [authorId], references: [id])
-  authorId          String
-  likeNumber        Int               @default(0)
-  submissions       Submission[]
-  testcases         Testcase[]
-  solution          Solution?
-  problemConstrain  ProblemConstrain?
-  comments          ProblemComment[]
-  contestProblems   ContestProblem[]
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id                  String                @id @default(cuid())
+  title               String
+  description         String                @db.Text
+  tags                Tag[]
+  difficulty          Difficulty            @default(EASY)
+  taskDescription     String                @db.Text
+  inputDescription    String                @db.Text
+  outputDescription   String                @db.Text
+  status              ProblemStatus         @default(PENDING)
+  author              User                  @relation(fields: [authorId], references: [id])
+  authorId            String
+  likeNumber          Int                   @default(0)
+  submissions         Submission[]
+  testcases           Testcase[]
+  solution            Solution?
+  problemConstrain    ProblemConstrain?
+  comments            ProblemComment[]
+  contestProblems     ContestProblem[]
+  visibility          ProblemVisibility    @default(PUBLIC) // PUBLIC hoặc CONTEST_ONLY
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@index([visibility, status])
+  @@index([authorId])
 }
 
 model Submission {
-  id             String           @id @default(cuid())
-  code           String
-  language       Language         @relation(fields: [languageId], references: [id])
-  languageId     String
-  status         SubmissionStatus @default(PENDING)
-  user           User             @relation(fields: [userId], references: [id])
-  userId         String
-  problem        Problem          @relation(fields: [problemId], references: [id])
-  problemId      String
-  consumedTime   Int?
-  consumedMemory Int?
-  failedTests    Testcase[]
-  contest        Contest?         @relation(fields: [contestId], references: [id])
-  contestId      String?
-  submittedAt    DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id              String            @id @default(cuid())
+  code            String            @db.Text
+  language        Language          @relation(fields: [languageId], references: [id])
+  languageId      String
+  status          SubmissionStatus  @default(PENDING)
+  user            User              @relation(fields: [userId], references: [id])
+  userId          String
+  problem         Problem           @relation(fields: [problemId], references: [id])
+  problemId       String
+  consumedTime    Int?
+  consumedMemory  Int?
+  failedTests     Testcase[]
+  contest         Contest?          @relation(fields: [contestId], references: [id])
+  contestId       String?           // Nếu submit trong contest
+  submittedAt     DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([contestId, userId, problemId, status]) // Cho leaderboard
+  @@index([userId, problemId])
+  @@index([contestId, submittedAt])
 }
 
 model Testcase {
-  id          String       @id @default(cuid())
-  input       String
-  output      String
-  problem     Problem      @relation(fields: [problemId], references: [id])
+  id          String    @id @default(cuid())
+  input       String    @db.Text
+  output      String    @db.Text
+  problem     Problem   @relation(fields: [problemId], references: [id])
   problemId   String
-  isSample    Boolean      @default(false)
+  isSample    Boolean   @default(false)
   submissions Submission[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Language {
-  id          String       @id @default(cuid())
-  name        String
+  id          String      @id @default(cuid())
+  name        String      @unique
   submissions Submission[]
   solutions   Solution[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model Solution {
-  id         String   @id @default(cuid())
-  code       String
-  language   Language @relation(fields: [languageId], references: [id])
-  languageId String
-  problem    Problem  @relation(fields: [problemId], references: [id])
-  problemId  String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(cuid())
+  code        String   @db.Text
+  language    Language @relation(fields: [languageId], references: [id])
+  languageId  String
+  problem     Problem  @relation(fields: [problemId], references: [id])
+  problemId   String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ProblemConstrain {
@@ -156,74 +164,92 @@ model ProblemConstrain {
 }
 
 model ProblemComment {
-  id        String           @id @default(cuid())
-  content   String
-  user      User             @relation(fields: [userId], references: [id])
-  userId    String
-  problem   Problem          @relation(fields: [problemId], references: [id])
-  problemId String
-  replyTo   ProblemComment?  @relation("ReplyToRelation", fields: [replyToId], references: [id])
-  replyToId String?
-  replies   ProblemComment[] @relation("ReplyToRelation")
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id         String           @id @default(cuid())
+  content    String           @db.Text
+  user       User             @relation(fields: [userId], references: [id])
+  userId     String
+  problem    Problem          @relation(fields: [problemId], references: [id])
+  problemId  String
+  replyTo    ProblemComment?  @relation("ReplyToRelation", fields: [replyToId], references: [id])
+  replyToId  String?
+  replies    ProblemComment[] @relation("ReplyToRelation")
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
 }
 
 model Tag {
   id        String    @id @default(cuid())
-  name      String
+  name      String    @unique
   problems  Problem[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
 
-// ===================== CONTEST MODELS =========================
+// ==================== CONTEST MODELS ====================
 
 model Contest {
-  id           String               @id @default(cuid())
-  title        String
-  description  String
-  startTime    DateTime
-  endTime      DateTime
-  duration     Int                  // Duration in minutes
-  status       ContestStatus        @default(UPCOMING)
-  type         ContestType          @default(INDIVIDUAL)
-  isPublic     Boolean              @default(true)
-  allowedUsers User[]               @relation("ContestParticipants")
-  createdBy    User                 @relation("ContestCreator", fields: [createdById], references: [id])
-  createdById  String
-  problems     ContestProblem[]
-  participants ContestParticipant[]
-  submissions  Submission[]
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  id             String                @id @default(cuid())
+  title          String
+  description    String                @db.Text
+  startTime      DateTime
+  endTime        DateTime
+  duration       Int                   @default(0)
+  status         ContestStatus        @default(UPCOMING)
+  isPublic       Boolean               @default(true)
+  maxScore       Int                   @default(0)
+  createdBy      User                  @relation(fields: [createdById], references: [id])
+  createdById    String
+  submissions    Submission[]
+  problems       ContestProblem[]
+  participants   ContestParticipant[]
+  invitations    ContestInvitation[]
+  isDeleted      Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([isPublic, startTime]) // Filter contest public/upcoming
+  @@index([createdById])
 }
 
 model ContestProblem {
-  id        String   @id @default(cuid())
-  contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  contestId String
-  problem   Problem  @relation(fields: [problemId], references: [id])
-  problemId String
-  order     Int      // Display order (1 = A, 2 = B, etc.)
-  points    Int      @default(100)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  contest    Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  contestId  String
+  problem    Problem  @relation(fields: [problemId], references: [id])
+  problemId  String
+  order      Int
+  points     Int      @default(100)
+  createdAt  DateTime @default(now())
 
   @@unique([contestId, problemId])
   @@unique([contestId, order])
+  @@index([contestId])
 }
 
 model ContestParticipant {
-  id          String   @id @default(cuid())
-  contest     Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  contestId   String
-  user        User     @relation("ContestParticipation", fields: [userId], references: [id])
-  userId      String
-  totalScore  Int      @default(0)
-  totalTime   Int      @default(0) // Penalty time in seconds
-  rank        Int?
-  solvedCount Int      @default(0)
-  joinedAt    DateTime @default(now())
+  id            String   @id @default(cuid())
+  contest       Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  contestId     String
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  joinedAt      DateTime @default(now())
+  totalScore    Int      @default(0)
+  lastSubmitTime DateTime?
 
   @@unique([contestId, userId])
+  @@index([contestId, totalScore, lastSubmitTime])
+  @@index([userId])
+}
+
+model ContestInvitation {
+  id         String   @id @default(cuid())
+  contest    Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  contestId  String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  invitedAt  DateTime @default(now())
+
+  @@unique([contestId, userId])
+  @@index([contestId])
+  @@index([userId])
 }
