@@ -118,7 +118,10 @@ export class ProblemService {
     search?: string;
     userId?: string; // Add userId to get user's solve status
   }) {
-    const where: any = {};
+    const where: any = {
+      visibility: 'PUBLIC',
+      status: 'APPROVED'
+    };
 
     if (params?.difficulty) {
       where.difficulty = params.difficulty;
