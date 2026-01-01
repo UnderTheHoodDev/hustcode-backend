@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsNotEmpty,
@@ -120,4 +120,78 @@ export class CreateContestProblemDto {
   @ValidateNested()
   @Type(() => CreateContestProblemConstraintDto)
   constraint: CreateContestProblemConstraintDto;
+}
+
+export class UpdateContestProblemDto {
+  @ApiPropertyOptional({ example: 1, description: 'Problem order' })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  order?: number;
+
+  @ApiPropertyOptional({ example: 100, description: 'Points' })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  points?: number;
+
+  @ApiPropertyOptional({ example: 'Two Sum (Updated)' })
+  @IsString()
+  @IsOptional()
+  title?: string;
+
+  @ApiPropertyOptional({ 
+    example: 'Updated description...',
+  })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiPropertyOptional({ 
+    example: ['array', 'hash-table', 'two-pointers'], 
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[];
+
+  @ApiPropertyOptional({ enum: Difficulty, example: Difficulty.MEDIUM })
+  @IsEnum(Difficulty)
+  @IsOptional()
+  difficulty?: Difficulty;
+
+  @ApiPropertyOptional({
+    example: 'Updated task description',
+  })
+  @IsString()
+  @IsOptional()
+  taskDescription?: string;
+
+  @ApiPropertyOptional({
+    example: 'Updated input description',
+  })
+  @IsString()
+  @IsOptional()
+  inputDescription?: string;
+
+  @ApiPropertyOptional({
+    example: 'Updated output description',
+  })
+  @IsString()
+  @IsOptional()
+  outputDescription?: string;
+
+  @ApiPropertyOptional({ type: [CreateContestProblemTestcaseDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateContestProblemTestcaseDto)
+  @IsOptional()
+  testcases?: CreateContestProblemTestcaseDto[];
+
+  @ApiPropertyOptional({ type: CreateContestProblemConstraintDto })
+  @ValidateNested()
+  @Type(() => CreateContestProblemConstraintDto)
+  @IsOptional()
+  constraint?: CreateContestProblemConstraintDto;
 }

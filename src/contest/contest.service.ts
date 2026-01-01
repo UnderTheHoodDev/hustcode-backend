@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ContestStatus, CreateContestDto, UpdateContestDto } from './dtos/contest.dto';
-import { CreateContestProblemDto } from './dtos/contest-problem.dto';
+import { CreateContestProblemDto, UpdateContestProblemDto } from './dtos/contest-problem.dto';
 
 
 
@@ -417,6 +417,176 @@ export class ContestService {
       await this.updateContestMaxScore(tx, dto.contestId);
 
       return contestProblem;
+    });
+
+    return result;
+  }
+
+  async updateContestProblem(
+    contestId: string,
+    problemId: string,
+    dto: UpdateContestProblemDto,
+    userId: string,
+  ) {
+    // Verify contest exists and user is creator
+    const contest = await this.prisma.contest.findUnique({
+      where: { id: contestId, isDeleted: false },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    if (contest.createdById !== userId) {
+      throw new ForbiddenException('Only contest creator can update problems');
+    }
+
+    // Verify problem exists in contest
+    const contestProblem = await this.prisma.contestProblem.findUnique({
+      where: {
+        contestId_problemId: {
+          contestId,
+          problemId,
+        },
+      },
+    });
+
+    if (!contestProblem) {
+      throw new NotFoundException('Problem not found in this contest');
+    }
+
+    // If updating order, check for conflicts
+    if (dto.order && dto.order !== contestProblem.order) {
+      const orderExists = await this.prisma.contestProblem.findUnique({
+        where: {
+          contestId_order: {
+            contestId,
+            order: dto.order,
+          },
+        },
+      });
+
+      if (orderExists) {
+        throw new BadRequestException(`Problem with order ${dto.order} already exists in this contest`);
+      }
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Update ContestProblem (order, points)
+      const updatedContestProblem = await tx.contestProblem.update({
+        where: {
+          contestId_problemId: {
+            contestId,
+            problemId,
+          },
+        },
+        data: {
+          ...(dto.order && { order: dto.order }),
+          ...(dto.points && { points: dto.points }),
+        },
+      });
+
+      // Update Problem details if provided
+      const problemUpdateData: any = {};
+      
+      if (dto.title) problemUpdateData.title = dto.title;
+      if (dto.description) problemUpdateData.description = dto.description;
+      if (dto.difficulty) problemUpdateData.difficulty = dto.difficulty;
+      if (dto.taskDescription) problemUpdateData.taskDescription = dto.taskDescription;
+      if (dto.inputDescription) problemUpdateData.inputDescription = dto.inputDescription;
+      if (dto.outputDescription) problemUpdateData.outputDescription = dto.outputDescription;
+
+      // Handle tags if provided
+      if (dto.tags) {
+        const tagRecords = await Promise.all(
+          dto.tags.map(async (tagName) => {
+            const normalizedTagName = tagName.trim().toLowerCase();
+            
+            let tag = await tx.tag.findFirst({
+              where: { name: normalizedTagName },
+            });
+
+            if (!tag) {
+              tag = await tx.tag.create({
+                data: { name: normalizedTagName },
+              });
+            }
+
+            return tag;
+          }),
+        );
+
+        problemUpdateData.tags = {
+          set: [],
+          connect: tagRecords.map((tag) => ({ id: tag.id })),
+        };
+      }
+
+      // Update problem if there's any data to update
+      if (Object.keys(problemUpdateData).length > 0) {
+        await tx.problem.update({
+          where: { id: problemId },
+          data: problemUpdateData,
+        });
+      }
+
+      // Update testcases if provided
+      if (dto.testcases) {
+        await tx.testcase.deleteMany({
+          where: { problemId },
+        });
+
+        await tx.testcase.createMany({
+          data: dto.testcases.map((tc) => ({
+            problemId,
+            input: tc.input,
+            output: tc.output,
+            isSample: tc.isSample,
+          })),
+        });
+      }
+
+      // Update constraint if provided
+      if (dto.constraint) {
+        await tx.problemConstrain.upsert({
+          where: { problemId },
+          update: {
+            memoryLimit: dto.constraint.memoryLimit,
+            timeLimit: dto.constraint.timeLimit,
+          },
+          create: {
+            problemId,
+            memoryLimit: dto.constraint.memoryLimit,
+            timeLimit: dto.constraint.timeLimit,
+          },
+        });
+      }
+
+      // Update contest maxScore if points changed
+      if (dto.points) {
+        await this.updateContestMaxScore(tx, contestId);
+      }
+
+      // Fetch and return updated problem with all relations
+      const updatedProblem = await tx.contestProblem.findUnique({
+        where: {
+          contestId_problemId: {
+            contestId,
+            problemId,
+          },
+        },
+        include: {
+          problem: {
+            include: {
+              tags: true,
+              testcases: true,
+              problemConstrain: true,
+            },
+          },
+        },
+      });
+
+      return updatedProblem;
     });
 
     return result;

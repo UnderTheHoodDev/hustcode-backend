@@ -21,7 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { ContestService } from './contest.service';
 import { ContestStatus, CreateContestDto, UpdateContestDto } from './dtos/contest.dto';
-import { CreateContestProblemDto } from './dtos/contest-problem.dto';
+import { CreateContestProblemDto, UpdateContestProblemDto } from './dtos/contest-problem.dto';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
 
 
@@ -201,6 +201,41 @@ export class ContestController {
     const userId = req.user?.id;
 
     return this.contestService.createContestProblem(dto, userId);
+  }
+
+  @Patch(':contestId/problems/:problemId')
+  @ApiOperation({
+    summary: 'Update problem in contest',
+    description: 'Update contest problem details including order, points, problem content, testcases, and constraints. Only contest creator can update.',
+  })
+  @ApiParam({ name: 'contestId', type: 'string', example: 'clxxx123456789' })
+  @ApiParam({ name: 'problemId', type: 'string', example: 'clxxx987654321' })
+  @ApiResponse({
+    status: 200,
+    description: 'Problem updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input or order conflict',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Only contest creator can update problems',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest or problem not found',
+  })
+  async updateProblem(
+    @Param('contestId') contestId: string,
+    @Param('problemId') problemId: string,
+    @Body() dto: UpdateContestProblemDto,
+    @Req() req: any,
+  ) {
+    // TODO: Get userId from JWT
+    const userId = req.user?.id;
+
+    return this.contestService.updateContestProblem(contestId, problemId, dto, userId);
   }
 
   @Delete(':contestId/problems/:problemId')
