@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SubmissionService } from 'src/submission/submission.service';
 import { SubmitProblemDto } from './dto/submit-problem.dto';
@@ -29,6 +29,59 @@ export class ProblemSubmissionService {
         `Problem with ID ${submitDto.problemId} not found`,
       );
     }
+    
+    console.log('DEBUG: Problem details:', problem);
+    if(problem.visibility === 'CONTEST_ONLY'){
+      if (!submitDto.contestId) {
+        throw new BadRequestException(
+          'This is a contest-only problem. You must provide contestId.');
+        }
+
+      // Validate contest exists and user has access
+      await this.validateContestAccess(submitDto.contestId, userId);
+    }
+
+    if (submitDto.contestId) {
+      const contest = await this.prisma.contest.findUnique({
+        where: { id: submitDto.contestId, isDeleted: false },
+      });
+
+      if (!contest) {
+        throw new NotFoundException('Contest not found');
+      }
+
+      // Check contest status
+      const now = new Date();
+      if (now < contest.startTime) {
+        throw new BadRequestException('Contest has not started yet');
+      }
+      
+      // Allow submissions after contest ends (for practice/virtual contest) Uncomment to disallow
+      // if (now > contest.endTime) {
+      //   throw new BadRequestException('Contest has ended');
+      // }
+
+      // Check if problem is in this contest
+      const contestProblem = await this.prisma.contestProblem.findUnique({
+        where: {
+          contestId_problemId: {
+            contestId: submitDto.contestId,
+            problemId: submitDto.problemId,
+          },
+        },
+      });
+
+      if (!contestProblem) {
+        throw new BadRequestException('Problem not found in this contest');
+      }
+
+      // Check if user is registered (for public contests) or invited (for private contests)
+      const hasAccess = await this.checkUserContestAccess(submitDto.contestId, userId);
+      if (!hasAccess) {
+        throw new ForbiddenException('You do not have access to this contest');
+      }
+    }
+
 
     if (problem.testcases.length === 0) {
       throw new BadRequestException(
@@ -64,6 +117,7 @@ export class ProblemSubmissionService {
         languageId: language.id,
         userId: userId,
         problemId: problem.id,
+        contestId: submitDto.contestId || null,
         status: SubmissionStatus.PENDING,
         consumedTime: null,
         consumedMemory: null,
@@ -177,6 +231,11 @@ export class ProblemSubmissionService {
         },
       });
 
+      // Update contest participant score if in contest and ACCEPTED
+      if (submitDto.contestId && finalStatus === SubmissionStatus.ACCEPTED) {
+        await this.updateContestParticipantScore(submitDto.contestId, userId, submitDto.problemId);
+      }
+
       return {
         submission: updatedSubmission,
         testcaseResults,
@@ -191,6 +250,136 @@ export class ProblemSubmissionService {
       });
 
       throw error;
+    }
+  }
+
+  private async validateContestAccess(contestId: string, userId: string) {
+    const contest = await this.prisma.contest.findUnique({
+      where: { id: contestId, isDeleted: false },
+    });
+
+    if (!contest) {
+      throw new NotFoundException('Contest not found');
+    }
+
+    // Public contest: anyone can access
+    if (contest.isPublic) {
+      return true;
+    }
+
+    // Private contest: check invitation
+    const invitation = await this.prisma.contestInvitation.findUnique({
+      where: {
+        contestId_userId: {
+          contestId,
+          userId,
+        },
+      },
+    });
+
+    if (!invitation && contest.createdById !== userId) {
+      throw new ForbiddenException('You are not invited to this private contest');
+    }
+
+    return true;
+  }
+
+  private async checkUserContestAccess(contestId: string, userId: string): Promise<boolean> {
+    const contest = await this.prisma.contest.findUnique({
+      where: { id: contestId },
+      include: {
+        participants: {
+          where: { userId },
+        },
+        invitations: {
+          where: { userId },
+        },
+      },
+    });
+
+    if (!contest) {
+      return false;
+    }
+
+    // Creator always has access
+    if (contest.createdById === userId) {
+      return true;
+    }
+
+    // Public contest: user must be registered
+    if (contest.isPublic) {
+      return contest.participants.length > 0;
+    }
+
+    // Private contest: user must be invited
+    return contest.invitations.length > 0;
+  }
+
+  private async updateContestParticipantScore(contestId: string, userId: string, problemId: string) {
+    // Get contest problem points
+    const contestProblem = await this.prisma.contestProblem.findUnique({
+      where: {
+        contestId_problemId: {
+          contestId,
+          problemId,
+        },
+      },
+    });
+
+    if (!contestProblem) {
+      return;
+    }
+
+    // Check if participant exists
+    let participant = await this.prisma.contestParticipant.findUnique({
+      where: {
+        contestId_userId: {
+          contestId,
+          userId,
+        },
+      },
+    });
+
+    // If participant doesn't exist, create one (auto-register)
+    if (!participant) {
+      participant = await this.prisma.contestParticipant.create({
+        data: {
+          contestId,
+          userId,
+          totalScore: 0,
+        },
+      });
+    }
+
+    // Check if user already solved this problem
+    const previousAcceptedSubmission = await this.prisma.submission.findFirst({
+      where: {
+        contestId,
+        userId,
+        problemId,
+        status: SubmissionStatus.ACCEPTED,
+      },
+      orderBy: {
+        submittedAt: 'asc',
+      },
+    });
+
+    // If this is first AC for this problem, add points
+    if (!previousAcceptedSubmission || previousAcceptedSubmission.submittedAt >= new Date()) {
+      const newScore = participant.totalScore + contestProblem.points;
+
+      await this.prisma.contestParticipant.update({
+        where: {
+          contestId_userId: {
+            contestId,
+            userId,
+          },
+        },
+        data: {
+          totalScore: newScore,
+          lastSubmitTime: new Date(),
+        },
+      });
     }
   }
 

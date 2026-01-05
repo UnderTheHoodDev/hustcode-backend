@@ -1,6 +1,6 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsString, IsNotEmpty, ValidateNested } from "class-validator";
+import { IsString, IsNotEmpty, ValidateNested, IsOptional } from "class-validator";
 
 export class SubmitLanguageDto {
   @ApiProperty({ example: 'python', description: 'Language ID' })
@@ -35,4 +35,12 @@ export class SubmitProblemDto {
   @ValidateNested()
   @Type(() => SubmitLanguageDto)
   language: SubmitLanguageDto;
+
+  @ApiPropertyOptional({
+    example: 'clxxx987654321',
+    description: 'Contest ID (if submitting during a contest)'
+  })
+  @IsString()
+  @IsOptional()
+  contestId?: string;
 }
