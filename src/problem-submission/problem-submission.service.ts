@@ -130,6 +130,7 @@ export class ProblemSubmissionService {
     let maxMemory = 0;
     const failedTestcaseIds: string[] = [];
     const testcaseResults: any[] = [];
+    let compileErrorMessage: string | null = null;
 
     console.log('DEBUG: The number of testcase is', problem.testcases.length);
 
@@ -155,6 +156,7 @@ export class ProblemSubmissionService {
           memory: result.memory,
           stdout: result.stdout,
           stderr: result.stderr,
+          compile_error: result.compile_error,
         });
 
         // Track time and memory
@@ -195,6 +197,8 @@ export class ProblemSubmissionService {
             result.status === CompilerStatus.CompileError ||
             result.status === CompilerStatus.RuntimeError
           ) {
+            finalStatus = SubmissionStatus.COMPILATION_ERROR;
+            compileErrorMessage = result.compile_error ?? null;
             break;
           }
         }
@@ -239,6 +243,7 @@ export class ProblemSubmissionService {
       return {
         submission: updatedSubmission,
         testcaseResults,
+        compile_error: compileErrorMessage,
       };
     } catch (error) {
       // Update submission status to RUNTIME_ERROR on unexpected errors
