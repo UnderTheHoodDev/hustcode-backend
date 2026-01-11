@@ -1,31 +1,36 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
-  Query,
-  Req,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
-  ApiTags,
   ApiOperation,
-  ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
-import { ContestService } from './contest.service';
-import { ContestStatus, CreateContestDto, UpdateContestDto } from './dtos/contest.dto';
-import { CreateContestProblemDto, UpdateContestProblemDto } from './dtos/contest-problem.dto';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
+import { ContestService } from './contest.service';
 import { InviteUsersDto } from './dtos/contest-invitation.dto';
-
-
+import {
+  CreateContestProblemDto,
+  UpdateContestProblemDto,
+} from './dtos/contest-problem.dto';
+import {
+  ContestStatus,
+  CreateContestDto,
+  UpdateContestDto,
+} from './dtos/contest.dto';
 
 @ApiTags('contests')
 @Controller('contests')
@@ -36,7 +41,8 @@ export class ContestController {
   @Post()
   @ApiOperation({
     summary: 'Create a new contest',
-    description: 'Create a contest (public or private). Only authenticated users can create contests.',
+    description:
+      'Create a contest (public or private). Only authenticated users can create contests.',
   })
   @ApiResponse({
     status: 201,
@@ -57,7 +63,8 @@ export class ContestController {
   @Get()
   @ApiOperation({
     summary: 'Get all contests',
-    description: 'Get paginated list of contests. Users see public contests and private contests they have access to.',
+    description:
+      'Get paginated list of contests. Users see public contests and private contests they have access to.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'pageSize', required: false, type: Number, example: 10 })
@@ -82,7 +89,8 @@ export class ContestController {
     const pageSizeNum = pageSize ? parseInt(pageSize, 10) : 10;
     const skip = (pageNum - 1) * pageSizeNum;
 
-    const isPublicBool = isPublic === 'true' ? true : isPublic === 'false' ? false : undefined;
+    const isPublicBool =
+      isPublic === 'true' ? true : isPublic === 'false' ? false : undefined;
 
     const userId = req?.user?.id;
 
@@ -121,7 +129,8 @@ export class ContestController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Update contest',
-    description: 'Update contest details. Only contest creator can update. Set isPublic=true to convert private contest to public.',
+    description:
+      'Update contest details. Only contest creator can update. Set isPublic=true to convert private contest to public.',
   })
   @ApiParam({ name: 'id', type: 'string', example: 'clxxx123456789' })
   @ApiResponse({
@@ -176,7 +185,8 @@ export class ContestController {
   @Post('problems')
   @ApiOperation({
     summary: 'Create problem in contest',
-    description: 'Create a new contest-only problem. The problem will have CONTEST_ONLY visibility and won\'t appear in public problem list.',
+    description:
+      "Create a new contest-only problem. The problem will have CONTEST_ONLY visibility and won't appear in public problem list.",
   })
   @ApiResponse({
     status: 201,
@@ -194,10 +204,7 @@ export class ContestController {
     status: 404,
     description: 'Contest not found',
   })
-  async createProblem(
-    @Body() dto: CreateContestProblemDto,
-    @Req() req: any,
-  ) {
+  async createProblem(@Body() dto: CreateContestProblemDto, @Req() req: any) {
     // TODO: Get userId from JWT
     const userId = req.user?.id;
 
@@ -207,7 +214,8 @@ export class ContestController {
   @Patch(':contestId/problems/:problemId')
   @ApiOperation({
     summary: 'Update problem in contest',
-    description: 'Update contest problem details including order, points, problem content, testcases, and constraints. Only contest creator can update.',
+    description:
+      'Update contest problem details including order, points, problem content, testcases, and constraints. Only contest creator can update.',
   })
   @ApiParam({ name: 'contestId', type: 'string', example: 'clxxx123456789' })
   @ApiParam({ name: 'problemId', type: 'string', example: 'clxxx987654321' })
@@ -236,14 +244,20 @@ export class ContestController {
     // TODO: Get userId from JWT
     const userId = req.user?.id;
 
-    return this.contestService.updateContestProblem(contestId, problemId, dto, userId);
+    return this.contestService.updateContestProblem(
+      contestId,
+      problemId,
+      dto,
+      userId,
+    );
   }
 
   @Delete(':contestId/problems/:problemId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Remove problem from contest',
-    description: 'Remove a problem from contest and delete it (since it\'s contest-only). Only contest creator can remove problems.',
+    description:
+      "Remove a problem from contest and delete it (since it's contest-only). Only contest creator can remove problems.",
   })
   @ApiParam({ name: 'contestId', type: 'string', example: 'clxxx123456789' })
   @ApiParam({ name: 'problemId', type: 'string', example: 'clxxx987654321' })
@@ -267,137 +281,231 @@ export class ContestController {
     // TODO: Get userId from JWT
     const userId = req.user?.id;
 
-    return this.contestService.removeContestProblem(contestId, problemId, userId);
+    return this.contestService.removeContestProblem(
+      contestId,
+      problemId,
+      userId,
+    );
   }
 
   // -- Contest invitations for private contests //
 
-@Post(':id/invitations')
-@ApiOperation({
-  summary: 'Invite users to private contest',
-  description: 'Admin invites multiple users to a private contest. Only works for private contests.',
-})
-@ApiParam({ name: 'id', type: 'string', example: 'clxxx123456789', description: 'Contest ID' })
-@ApiResponse({
-  status: 201,
-  description: 'Users invited successfully',
-})
-@ApiResponse({
-  status: 400,
-  description: 'Contest is public or invalid user IDs',
-})
-@ApiResponse({
-  status: 403,
-  description: 'Only contest creator can invite users',
-})
-@ApiResponse({
-  status: 404,
-  description: 'Contest not found',
-})
-async inviteUsers(
-  @Param('id') contestId: string,
-  @Body() dto: InviteUsersDto,
-  @Req() req: any,
-) {
-  const userId = req.user?.id;
-  return this.contestService.inviteUsers(contestId, dto.userIds, userId);
-}
+  @Post(':id/invitations')
+  @ApiOperation({
+    summary: 'Invite users to private contest',
+    description:
+      'Admin invites multiple users to a private contest. Only works for private contests.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    example: 'clxxx123456789',
+    description: 'Contest ID',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Users invited successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Contest is public or invalid user IDs',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Only contest creator can invite users',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  async inviteUsers(
+    @Param('id') contestId: string,
+    @Body() dto: InviteUsersDto,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.id;
+    return this.contestService.inviteUsers(contestId, dto.userIds, userId);
+  }
 
-@Get(':id/invitations')
-@ApiOperation({
-  summary: 'Get all invitations for a contest',
-  description: 'Get list of all invited users for a private contest. Only contest creator can view.',
-})
-@ApiParam({ name: 'id', type: 'string', example: 'clxxx123456789', description: 'Contest ID' })
-@ApiResponse({
-  status: 200,
-  description: 'Invitations retrieved successfully',
-})
-@ApiResponse({
-  status: 403,
-  description: 'Only contest creator can view invitations',
-})
-@ApiResponse({
-  status: 404,
-  description: 'Contest not found',
-})
-async getInvitations(
-  @Param('id') contestId: string,
-  @Req() req: any,
-) {
-  const userId = req.user?.id;
-  return this.contestService.getInvitations(contestId, userId);
-}
+  @Get(':id/invitations')
+  @ApiOperation({
+    summary: 'Get all invitations for a contest',
+    description:
+      'Get list of all invited users for a private contest. Only contest creator can view.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    example: 'clxxx123456789',
+    description: 'Contest ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Invitations retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Only contest creator can view invitations',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  async getInvitations(@Param('id') contestId: string, @Req() req: any) {
+    const userId = req.user?.id;
+    return this.contestService.getInvitations(contestId, userId);
+  }
 
-@Delete(':contestId/invitations/:userId')
-@HttpCode(HttpStatus.OK)
-@ApiOperation({
-  summary: 'Remove user invitation',
-  description: 'Remove a user invitation from private contest. Only contest creator can remove.',
-})
-@ApiParam({ name: 'contestId', type: 'string', example: 'clxxx123456789' })
-@ApiParam({ name: 'userId', type: 'string', example: 'clxxx987654321' })
-@ApiResponse({
-  status: 200,
-  description: 'Invitation removed successfully',
-})
-@ApiResponse({
-  status: 403,
-  description: 'Only contest creator can remove invitations',
-})
-@ApiResponse({
-  status: 404,
-  description: 'Contest or invitation not found',
-})
-async removeInvitation(
-  @Param('contestId') contestId: string,
-  @Param('userId') userId: string,
-  @Req() req: any,
-) {
-  const adminId = req.user?.id;
-  return this.contestService.removeInvitation(contestId, userId, adminId);
-}
+  @Delete(':contestId/invitations/:userId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Remove user invitation',
+    description:
+      'Remove a user invitation from private contest. Only contest creator can remove.',
+  })
+  @ApiParam({ name: 'contestId', type: 'string', example: 'clxxx123456789' })
+  @ApiParam({ name: 'userId', type: 'string', example: 'clxxx987654321' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invitation removed successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Only contest creator can remove invitations',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest or invitation not found',
+  })
+  async removeInvitation(
+    @Param('contestId') contestId: string,
+    @Param('userId') userId: string,
+    @Req() req: any,
+  ) {
+    const adminId = req.user?.id;
+    return this.contestService.removeInvitation(contestId, userId, adminId);
+  }
 
-// -- Leaderboard --
+  // -- Leaderboard --
 
-@Get(':id/leaderboard')
-@ApiOperation({
-  summary: 'Get contest leaderboard',
-  description: 'Get leaderboard with participant scores sorted by total score (highest first). For tie-breaker, earlier last submission time ranks higher. If filterUserId is provided, returns only that user\'s data with their rank.',
-})
-@ApiParam({ name: 'id', type: 'string', example: 'clxxx123456789', description: 'Contest ID' })
-@ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-@ApiQuery({ name: 'pageSize', required: false, type: Number, example: 50 })
-@ApiQuery({ name: 'filterUserId', required: false, type: String, description: 'Filter by specific user ID to get only that user\'s leaderboard entry' })
-@ApiResponse({
-  status: 200,
-  description: 'Leaderboard retrieved successfully',
-})
-@ApiResponse({
-  status: 403,
-  description: 'Access denied to private contest',
-})
-@ApiResponse({
-  status: 404,
-  description: 'Contest not found',
-})
-async getLeaderboard(
-  @Param('id') contestId: string,
-  @Query('page') page?: string,
-  @Query('pageSize') pageSize?: string,
-  @Query('filterUserId') filterUserId?: string,
-  @Req() req?: any,
-) {
-  const pageNum = page ? parseInt(page, 10) : 1;
-  const pageSizeNum = pageSize ? parseInt(pageSize, 10) : 50;
-  const skip = (pageNum - 1) * pageSizeNum;
+  @Get(':id/leaderboard')
+  @ApiOperation({
+    summary: 'Get contest leaderboard',
+    description:
+      "Get leaderboard with participant scores sorted by total score (highest first). For tie-breaker, earlier last submission time ranks higher. If filterUserId is provided, returns only that user's data with their rank.",
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    example: 'clxxx123456789',
+    description: 'Contest ID',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number, example: 50 })
+  @ApiQuery({
+    name: 'filterUserId',
+    required: false,
+    type: String,
+    description:
+      "Filter by specific user ID to get only that user's leaderboard entry",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Leaderboard retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Access denied to private contest',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  async getLeaderboard(
+    @Param('id') contestId: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('filterUserId') filterUserId?: string,
+    @Req() req?: any,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const pageSizeNum = pageSize ? parseInt(pageSize, 10) : 50;
+    const skip = (pageNum - 1) * pageSizeNum;
 
-  const userId = req?.user?.id;
+    const userId = req?.user?.id;
 
-  return this.contestService.getLeaderboard(
-    contestId,
-    { skip, take: pageSizeNum, filterUserId },
-    userId,
-  );
-}
+    return this.contestService.getLeaderboard(
+      contestId,
+      { skip, take: pageSizeNum, filterUserId },
+      userId,
+    );
+  }
+
+  // -- Submissions --
+
+  @Get(':id/submissions')
+  @ApiOperation({
+    summary: 'Get contest submissions',
+    description:
+      'Get paginated list of submissions for a contest. Can filter by problemId and/or userId. Only accessible by users who have access to the contest.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    example: 'clxxx123456789',
+    description: 'Contest ID',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number, example: 20 })
+  @ApiQuery({
+    name: 'problemId',
+    required: false,
+    type: String,
+    description: 'Filter by specific problem ID',
+  })
+  @ApiQuery({
+    name: 'filterUserId',
+    required: false,
+    type: String,
+    description: 'Filter by specific user ID',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    description: 'Filter by submission status (ACCEPTED, WRONG_ANSWER, etc.)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Submissions retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Access denied to private contest',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  async getContestSubmissions(
+    @Param('id') contestId: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('problemId') problemId?: string,
+    @Query('filterUserId') filterUserId?: string,
+    @Query('status') status?: string,
+    @Req() req?: any,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const pageSizeNum = pageSize ? parseInt(pageSize, 10) : 20;
+    const skip = (pageNum - 1) * pageSizeNum;
+
+    const userId = req?.user?.id;
+
+    return this.contestService.getContestSubmissions(
+      contestId,
+      { skip, take: pageSizeNum, problemId, filterUserId, status },
+      userId,
+    );
+  }
 }
