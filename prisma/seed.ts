@@ -117,6 +117,67 @@ async function main() {
         contributions: 30,
       },
     }),
+    // Additional users for leaderboard testing
+    prisma.user.create({
+      data: {
+        email: 'charlie@example.com',
+        name: 'Charlie Brown',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 1600,
+        contributions: 15,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'david@example.com',
+        name: 'David Lee',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 2200,
+        contributions: 60,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'emma@example.com',
+        name: 'Emma Watson',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 1750,
+        contributions: 20,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'frank@example.com',
+        name: 'Frank Miller',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 1900,
+        contributions: 35,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'grace@example.com',
+        name: 'Grace Kim',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 2050,
+        contributions: 45,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'henry@example.com',
+        name: 'Henry Nguyen',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 1850,
+        contributions: 28,
+      },
+    }),
   ]);
   console.log('👤 Created users');
 
@@ -657,16 +718,27 @@ async function main() {
     }),
   ]);
 
-  // Add participants to running contest
-  for (const user of users) {
+  // Add participants to running contest with specific scores for leaderboard testing
+  const leaderboardData = [
+    { userIndex: 0, score: 450, minutesAgo: 30 },   // John - Rank 2 (same score as Jane but submitted later)
+    { userIndex: 1, score: 450, minutesAgo: 45 },   // Jane - Rank 1 (same score but submitted earlier)
+    { userIndex: 2, score: 300, minutesAgo: 20 },   // Bob - Rank 5
+    { userIndex: 3, score: 350, minutesAgo: 15 },   // Alice - Rank 4
+    { userIndex: 4, score: 200, minutesAgo: 50 },   // Charlie - Rank 8
+    { userIndex: 5, score: 550, minutesAgo: 25 },   // David - Rank 1 (highest score)
+    { userIndex: 6, score: 400, minutesAgo: 10 },   // Emma - Rank 3
+    { userIndex: 7, score: 250, minutesAgo: 35 },   // Frank - Rank 6
+    { userIndex: 8, score: 250, minutesAgo: 40 },   // Grace - Rank 7 (same as Frank but submitted later)
+    { userIndex: 9, score: 150, minutesAgo: 55 },   // Henry - Rank 10
+  ];
+
+  for (const data of leaderboardData) {
     await prisma.contestParticipant.create({
       data: {
         contestId: contest2.id,
-        userId: user.id,
-        totalScore: Math.floor(Math.random() * 400),
-        lastSubmitTime: new Date(
-          now.getTime() - Math.random() * 60 * 60 * 1000,
-        ),
+        userId: users[data.userIndex].id,
+        totalScore: data.score,
+        lastSubmitTime: new Date(now.getTime() - data.minutesAgo * 60 * 1000),
       },
     });
   }
@@ -717,17 +789,25 @@ async function main() {
     }),
   ]);
 
-  // Add participants to finished contest
-  for (const user of users) {
+  // Add participants to finished contest with specific scores
+  const finishedContestData = [
+    { userIndex: 0, score: 300, minutesAgo: 100 },  // John - Full score, Rank 1
+    { userIndex: 1, score: 300, minutesAgo: 90 },   // Jane - Full score, but earlier, Rank 1 (tie-breaker)
+    { userIndex: 2, score: 200, minutesAgo: 80 },   // Bob - Rank 3
+    { userIndex: 3, score: 250, minutesAgo: 70 },   // Alice - Rank 2
+    { userIndex: 4, score: 100, minutesAgo: 110 },  // Charlie - Rank 6
+    { userIndex: 5, score: 200, minutesAgo: 95 },   // David - Rank 4 (same as Bob but submitted later)
+    { userIndex: 6, score: 150, minutesAgo: 85 },   // Emma - Rank 5
+  ];
+
+  for (const data of finishedContestData) {
     await prisma.contestParticipant.create({
       data: {
         contestId: contest3.id,
-        userId: user.id,
-        totalScore: Math.floor(Math.random() * 300),
+        userId: users[data.userIndex].id,
+        totalScore: data.score,
         lastSubmitTime: new Date(
-          now.getTime() -
-            7 * 24 * 60 * 60 * 1000 +
-            Math.random() * 2 * 60 * 60 * 1000,
+          now.getTime() - 7 * 24 * 60 * 60 * 1000 + data.minutesAgo * 60 * 1000,
         ),
       },
     });

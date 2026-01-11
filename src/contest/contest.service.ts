@@ -691,4 +691,460 @@ export class ContestService {
       data: { maxScore },
     });
   }
+
+  // Contest Invitation Management
+  async inviteUsers(contestId: string, userIds: string[], adminId: string) {
+    // Verify contest exists and is private
+    const contest = await this.prisma.contest.findUnique({
+      where: { id: contestId, isDeleted: false },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    if (contest.createdById !== adminId) {
+      throw new ForbiddenException('Only contest creator can invite users');
+    }
+
+    if (contest.isPublic) {
+      throw new BadRequestException('Cannot invite users to public contest. Public contests are open to everyone.');
+    }
+
+    // Validate all user IDs exist
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+    });
+
+    if (users.length !== userIds.length) {
+      throw new BadRequestException('One or more user IDs are invalid');
+    }
+
+    // Get existing invitations
+    const existingInvitations = await this.prisma.contestInvitation.findMany({
+      where: {
+        contestId,
+        userId: { in: userIds },
+      },
+    });
+
+    const existingUserIds = existingInvitations.map(inv => inv.userId);
+    const newUserIds = userIds.filter(id => !existingUserIds.includes(id));
+
+    // Create new invitations AND participants in transaction
+    if (newUserIds.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        // Create invitations
+        await tx.contestInvitation.createMany({
+          data: newUserIds.map(userId => ({
+            contestId,
+            userId,
+          })),
+        });
+
+        // Auto-create participants for invited users
+        // Check which users don't have participant records yet
+        const existingParticipants = await tx.contestParticipant.findMany({
+          where: {
+            contestId,
+            userId: { in: newUserIds },
+          },
+        });
+
+        const existingParticipantUserIds = existingParticipants.map(p => p.userId);
+        const newParticipantUserIds = newUserIds.filter(
+          id => !existingParticipantUserIds.includes(id),
+        );
+
+        if (newParticipantUserIds.length > 0) {
+          await tx.contestParticipant.createMany({
+            data: newParticipantUserIds.map(userId => ({
+              contestId,
+              userId,
+              totalScore: 0,
+            })),
+          });
+        }
+      });
+    }
+
+    // Get all invitations for response
+    const allInvitations = await this.prisma.contestInvitation.findMany({
+      where: { contestId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return {
+      message: `Successfully invited ${newUserIds.length} new user(s). ${existingUserIds.length} user(s) were already invited.`,
+      newInvitations: newUserIds.length,
+      alreadyInvited: existingUserIds.length,
+      totalInvited: allInvitations.length,
+      invitations: allInvitations,
+    };
+  }
+
+  async removeInvitation(contestId: string, userId: string, adminId: string) {
+    // Verify contest exists
+    const contest = await this.prisma.contest.findUnique({
+      where: { id: contestId, isDeleted: false },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    if (contest.createdById !== adminId) {
+      throw new ForbiddenException('Only contest creator can remove invitations');
+    }
+
+    // Check if invitation exists
+    const invitation = await this.prisma.contestInvitation.findUnique({
+      where: {
+        contestId_userId: {
+          contestId,
+          userId,
+        },
+      },
+    });
+
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    // Delete invitation AND participant in transaction
+    await this.prisma.$transaction(async (tx) => {
+      // Delete invitation
+      await tx.contestInvitation.delete({
+        where: {
+          contestId_userId: {
+            contestId,
+            userId,
+          },
+        },
+      });
+
+      // Delete participant record
+      const participant = await tx.contestParticipant.findUnique({
+        where: {
+          contestId_userId: {
+            contestId,
+            userId,
+          },
+        },
+      });
+
+      if (participant) {
+        await tx.contestParticipant.delete({
+          where: {
+            contestId_userId: {
+              contestId,
+              userId,
+            },
+          },
+        });
+      }
+    });
+
+    return {
+      message: 'Invitation removed successfully',
+      userId,
+    };
+  }
+
+  async getInvitations(contestId: string, adminId: string) {
+    // Verify contest exists
+    const contest = await this.prisma.contest.findUnique({
+      where: { id: contestId, isDeleted: false },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    if (contest.createdById !== adminId) {
+      throw new ForbiddenException('Only contest creator can view invitations');
+    }
+
+    const invitations = await this.prisma.contestInvitation.findMany({
+      where: { contestId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { invitedAt: 'desc' },
+    });
+
+    return {
+      contestId,
+      totalInvited: invitations.length,
+      invitations,
+    };
+  }
+
+  // Leaderboard
+  async getLeaderboard(
+    contestId: string,
+    params?: {
+      skip?: number;
+      take?: number;
+      filterUserId?: string;
+    },
+    userId?: string,
+  ) {
+    // Verify contest exists
+    const contest = await this.prisma.contest.findUnique({
+      where: { id: contestId, isDeleted: false },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    // Check access for private contests
+    if (!contest.isPublic && userId) {
+      const hasAccess = await this.checkUserAccess(contestId, userId);
+      if (!hasAccess) {
+        throw new ForbiddenException('You do not have access to this private contest');
+      }
+    } else if (!contest.isPublic && !userId) {
+      throw new ForbiddenException('This is a private contest');
+    }
+
+    const skip = params?.skip || 0;
+    const take = params?.take || 50;
+    const filterUserId = params?.filterUserId;
+
+    // Get contest problems
+    const contestProblems = await this.prisma.contestProblem.findMany({
+      where: { contestId },
+      orderBy: { order: 'asc' },
+      include: {
+        problem: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    // Build problems info for response
+    const problems = contestProblems.map((cp) => ({
+      problemId: cp.problemId,
+      title: cp.problem.title,
+      order: cp.order,
+      points: cp.points,
+    }));
+
+    const problemIds = contestProblems.map((cp) => cp.problemId);
+
+    // If filterUserId is provided, get only that user's data with their rank
+    if (filterUserId) {
+      // First, get the user's rank by counting how many participants have higher score
+      const userParticipant = await this.prisma.contestParticipant.findUnique({
+        where: {
+          contestId_userId: {
+            contestId,
+            userId: filterUserId,
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      if (!userParticipant) {
+        throw new NotFoundException('User is not a participant in this contest');
+      }
+
+      // Calculate user's rank
+      const higherRankedCount = await this.prisma.contestParticipant.count({
+        where: {
+          contestId,
+          OR: [
+            { totalScore: { gt: userParticipant.totalScore } },
+            {
+              totalScore: userParticipant.totalScore,
+              lastSubmitTime: userParticipant.lastSubmitTime
+                ? { lt: userParticipant.lastSubmitTime }
+                : undefined,
+            },
+          ],
+        },
+      });
+
+      const userRank = higherRankedCount + 1;
+
+      // Get user's submissions for this contest
+      const submissions = await this.prisma.submission.findMany({
+        where: {
+          contestId,
+          userId: filterUserId,
+          problemId: { in: problemIds },
+        },
+        select: {
+          problemId: true,
+          status: true,
+        },
+      });
+
+      // Group submissions by problem
+      const submissionMap = new Map<string, { count: number; isAccepted: boolean }>();
+      for (const sub of submissions) {
+        const existing = submissionMap.get(sub.problemId) || { count: 0, isAccepted: false };
+        existing.count++;
+        if (sub.status === 'ACCEPTED') {
+          existing.isAccepted = true;
+        }
+        submissionMap.set(sub.problemId, existing);
+      }
+
+      const problemResults = contestProblems.map((cp) => {
+        const subData = submissionMap.get(cp.problemId) || { count: 0, isAccepted: false };
+        return {
+          problemId: cp.problemId,
+          order: cp.order,
+          submissions: subData.count,
+          isAccepted: subData.isAccepted,
+          score: subData.isAccepted ? cp.points : 0,
+        };
+      });
+
+      const total = await this.prisma.contestParticipant.count({ where: { contestId } });
+
+      return {
+        contestId,
+        contestTitle: contest.title,
+        maxScore: contest.maxScore,
+        status: contest.status,
+        problems,
+        data: [
+          {
+            rank: userRank,
+            userId: userParticipant.userId,
+            userName: userParticipant.user.name,
+            userEmail: userParticipant.user.email,
+            totalScore: userParticipant.totalScore,
+            lastSubmitTime: userParticipant.lastSubmitTime,
+            joinedAt: userParticipant.joinedAt,
+            problemResults,
+          },
+        ],
+        total,
+        totalParticipants: total,
+      };
+    }
+
+    // Default: Get all participants with pagination
+    const [participants, total] = await Promise.all([
+      this.prisma.contestParticipant.findMany({
+        where: { contestId },
+        orderBy: [
+          { totalScore: 'desc' },
+          { lastSubmitTime: 'asc' },
+        ],
+        skip,
+        take,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      }),
+      this.prisma.contestParticipant.count({ where: { contestId } }),
+    ]);
+
+    // Get all submissions for this contest by the participants
+    const participantUserIds = participants.map((p) => p.userId);
+
+    const allSubmissions = await this.prisma.submission.findMany({
+      where: {
+        contestId,
+        userId: { in: participantUserIds },
+        problemId: { in: problemIds },
+      },
+      select: {
+        userId: true,
+        problemId: true,
+        status: true,
+      },
+    });
+
+    // Group submissions by user and problem
+    const allSubmissionMap = new Map<string, { count: number; isAccepted: boolean }>();
+    
+    for (const sub of allSubmissions) {
+      const key = `${sub.userId}_${sub.problemId}`;
+      const existing = allSubmissionMap.get(key) || { count: 0, isAccepted: false };
+      existing.count++;
+      if (sub.status === 'ACCEPTED') {
+        existing.isAccepted = true;
+      }
+      allSubmissionMap.set(key, existing);
+    }
+
+    // Add rank and problem results to each participant
+    const leaderboard = participants.map((participant, index) => {
+      const problemResults = contestProblems.map((cp) => {
+        const key = `${participant.userId}_${cp.problemId}`;
+        const subData = allSubmissionMap.get(key) || { count: 0, isAccepted: false };
+        
+        return {
+          problemId: cp.problemId,
+          order: cp.order,
+          submissions: subData.count,
+          isAccepted: subData.isAccepted,
+          score: subData.isAccepted ? cp.points : 0,
+        };
+      });
+
+      return {
+        rank: skip + index + 1,
+        userId: participant.userId,
+        userName: participant.user.name,
+        userEmail: participant.user.email,
+        totalScore: participant.totalScore,
+        lastSubmitTime: participant.lastSubmitTime,
+        joinedAt: participant.joinedAt,
+        problemResults,
+      };
+    });
+
+    return {
+      contestId,
+      contestTitle: contest.title,
+      maxScore: contest.maxScore,
+      status: contest.status,
+      problems,
+      data: leaderboard,
+      total,
+      page: Math.floor(skip / take) + 1,
+      pageSize: take,
+      totalPages: Math.ceil(total / take),
+    };
+  }
+
 }
