@@ -1,13 +1,27 @@
-import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { Request } from 'express';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 import { JwtGuard } from 'src/auth/guards/jwt.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { UpdateUserRoleDto } from './dtos/update-user-role.dto';
 import { UserService } from './user.service';
 
 @ApiTags('users')
@@ -98,5 +112,33 @@ export class UserController {
   })
   async getUserProfile(@Param('id') id: string) {
     return this.userService.getUser(id);
+  }
+
+  @Patch(':id/role')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update user role',
+    description: 'Update the role of a specific user (Admin only)',
+  })
+  @ApiParam({ name: 'id', type: 'string', description: 'User ID to update' })
+  @ApiResponse({
+    status: 200,
+    description: 'User role updated successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async updateUserRole(
+    @Param('id') id: string,
+    @Body() updateUserRoleDto: UpdateUserRoleDto,
+  ) {
+    return this.userService.updateUserRole(id, updateUserRoleDto.role);
   }
 }
