@@ -117,6 +117,67 @@ async function main() {
         contributions: 30,
       },
     }),
+    // Additional users for leaderboard testing
+    prisma.user.create({
+      data: {
+        email: 'charlie@example.com',
+        name: 'Charlie Brown',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 1600,
+        contributions: 15,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'david@example.com',
+        name: 'David Lee',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 2200,
+        contributions: 60,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'emma@example.com',
+        name: 'Emma Watson',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 1750,
+        contributions: 20,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'frank@example.com',
+        name: 'Frank Miller',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 1900,
+        contributions: 35,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'grace@example.com',
+        name: 'Grace Kim',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 2050,
+        contributions: 45,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'henry@example.com',
+        name: 'Henry Nguyen',
+        password: hashedPassword,
+        role: UserRole.USER,
+        rating: 1850,
+        contributions: 28,
+      },
+    }),
   ]);
   console.log('👤 Created users');
 
@@ -657,19 +718,242 @@ async function main() {
     }),
   ]);
 
-  // Add participants to running contest
-  for (const user of users) {
+  // Contest 2 problems with points:
+  // Problem 0 (problems[4]): 100 points
+  // Problem 1 (problems[6]): 100 points
+  // Problem 2 (problems[10]): 150 points
+  // Problem 3 (problems[11]): 150 points
+  // Problem 4 (contestOnlyProblems[1]): 100 points
+  // Total: 600 points
+
+  const contest2ProblemsList = [
+    { problem: problems[4], points: 100 },
+    { problem: problems[6], points: 100 },
+    { problem: problems[10], points: 150 },
+    { problem: problems[11], points: 150 },
+    { problem: contestOnlyProblems[1], points: 100 },
+  ];
+
+  // Define which problems each user solved (ACCEPTED) with submission time
+  // Score will be calculated from solved problems
+  const contest2UserSolutions: {
+    userIndex: number;
+    solvedProblems: { problemIndex: number; minutesAgo: number }[];
+    failedAttempts: {
+      problemIndex: number;
+      status: string;
+      minutesAgo: number;
+    }[];
+  }[] = [
+    {
+      // David - Full score 600 (solved all 5 problems) - RANK 1
+      userIndex: 5,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 55 },
+        { problemIndex: 1, minutesAgo: 48 },
+        { problemIndex: 2, minutesAgo: 40 },
+        { problemIndex: 3, minutesAgo: 32 },
+        { problemIndex: 4, minutesAgo: 25 },
+      ],
+      failedAttempts: [],
+    },
+    {
+      // Jane - 450 points (problems 0,1,2,4 = 100+100+150+100) - RANK 2 (earlier submit)
+      userIndex: 1,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 58 },
+        { problemIndex: 1, minutesAgo: 52 },
+        { problemIndex: 2, minutesAgo: 45 },
+        { problemIndex: 4, minutesAgo: 42 },
+      ],
+      failedAttempts: [
+        { problemIndex: 3, status: 'WRONG_ANSWER', minutesAgo: 50 },
+        { problemIndex: 3, status: 'TIME_LIMIT_EXCEEDED', minutesAgo: 48 },
+      ],
+    },
+    {
+      // John - 450 points (problems 0,1,2,4 = 100+100+150+100) - RANK 3 (later submit)
+      userIndex: 0,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 50 },
+        { problemIndex: 1, minutesAgo: 42 },
+        { problemIndex: 2, minutesAgo: 35 },
+        { problemIndex: 4, minutesAgo: 30 },
+      ],
+      failedAttempts: [
+        { problemIndex: 2, status: 'WRONG_ANSWER', minutesAgo: 40 },
+        { problemIndex: 3, status: 'RUNTIME_ERROR', minutesAgo: 33 },
+      ],
+    },
+    {
+      // Emma - 400 points (problems 0,1,2,4 nhưng không có problem 4) = 100+100+150+50partial
+      // Actually: problems 0,1,3 = 100+100+150 = 350, + partial on 2 = 50 => 400
+      // Let's do: problems 0,1,2 = 100+100+150 = 350, need 50 more => partial not supported
+      // Simplify: Emma - 400 = problems 0,1,4 + problem 2 partial không hợp lý
+      // Better: Emma - 400 = 100+100+100+100 = problems 0,1,4 and one more
+      // Wait, points are: 100, 100, 150, 150, 100
+      // 400 = 100+100+100+100 = problems 0,1,4 + ? không có problem 100 nào khác
+      // 400 = 100+100+100+100 impossible with these points
+      // Let's recalculate: 400 = 100+100+100+100 (need 4 problems of 100) but we only have 3
+      // Or: 400 = 100+150+150 = problems 0 or 1 + problems 2 + 3
+      // Let's use: problems 1,2,3 = 100+150+150 = 400
+      userIndex: 6,
+      solvedProblems: [
+        { problemIndex: 1, minutesAgo: 45 },
+        { problemIndex: 2, minutesAgo: 35 },
+        { problemIndex: 3, minutesAgo: 10 },
+      ],
+      failedAttempts: [
+        { problemIndex: 0, status: 'WRONG_ANSWER', minutesAgo: 50 },
+        { problemIndex: 0, status: 'COMPILATION_ERROR', minutesAgo: 48 },
+        { problemIndex: 4, status: 'TIME_LIMIT_EXCEEDED', minutesAgo: 20 },
+      ],
+    },
+    {
+      // Alice - 350 points (problems 0,1,2 = 100+100+150) - RANK 5 (earlier)
+      userIndex: 3,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 40 },
+        { problemIndex: 1, minutesAgo: 32 },
+        { problemIndex: 2, minutesAgo: 15 },
+      ],
+      failedAttempts: [
+        { problemIndex: 3, status: 'WRONG_ANSWER', minutesAgo: 25 },
+        { problemIndex: 4, status: 'RUNTIME_ERROR', minutesAgo: 20 },
+      ],
+    },
+    {
+      // Henry - 350 points (problems 0,1,2 = 100+100+150) - RANK 6 (later than Alice)
+      userIndex: 9,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 48 },
+        { problemIndex: 1, minutesAgo: 38 },
+        { problemIndex: 2, minutesAgo: 18 },
+      ],
+      failedAttempts: [
+        { problemIndex: 0, status: 'WRONG_ANSWER', minutesAgo: 52 },
+        { problemIndex: 2, status: 'TIME_LIMIT_EXCEEDED', minutesAgo: 28 },
+      ],
+    },
+    {
+      // Frank - 250 points (problems 0,2 = 100+150) - RANK 7 (earliest among 3-way tie)
+      userIndex: 7,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 50 },
+        { problemIndex: 2, minutesAgo: 35 },
+      ],
+      failedAttempts: [
+        { problemIndex: 1, status: 'TIME_LIMIT_EXCEEDED', minutesAgo: 45 },
+        { problemIndex: 1, status: 'WRONG_ANSWER', minutesAgo: 40 },
+      ],
+    },
+    {
+      // Bob - 250 points (problems 0,2 = 100+150) - RANK 8 (middle)
+      userIndex: 2,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 42 },
+        { problemIndex: 2, minutesAgo: 20 },
+      ],
+      failedAttempts: [
+        { problemIndex: 1, status: 'WRONG_ANSWER', minutesAgo: 35 },
+        { problemIndex: 1, status: 'RUNTIME_ERROR', minutesAgo: 30 },
+        { problemIndex: 3, status: 'WRONG_ANSWER', minutesAgo: 25 },
+      ],
+    },
+    {
+      // Grace - 250 points (problems 1,3 = 100+150) - RANK 9 (latest)
+      userIndex: 8,
+      solvedProblems: [
+        { problemIndex: 1, minutesAgo: 55 },
+        { problemIndex: 3, minutesAgo: 40 },
+      ],
+      failedAttempts: [
+        { problemIndex: 0, status: 'WRONG_ANSWER', minutesAgo: 58 },
+        { problemIndex: 2, status: 'TIME_LIMIT_EXCEEDED', minutesAgo: 50 },
+      ],
+    },
+    {
+      // Charlie - 100 points (problem 0 = 100) - RANK 10 (lowest)
+      userIndex: 4,
+      solvedProblems: [{ problemIndex: 0, minutesAgo: 50 }],
+      failedAttempts: [
+        { problemIndex: 0, status: 'WRONG_ANSWER', minutesAgo: 58 },
+        { problemIndex: 0, status: 'WRONG_ANSWER', minutesAgo: 55 },
+        { problemIndex: 1, status: 'COMPILATION_ERROR', minutesAgo: 45 },
+        { problemIndex: 1, status: 'TIME_LIMIT_EXCEEDED', minutesAgo: 40 },
+        { problemIndex: 1, status: 'WRONG_ANSWER', minutesAgo: 35 },
+      ],
+    },
+  ];
+
+  // Create submissions and participants for Contest 2
+  for (const userData of contest2UserSolutions) {
+    // Create failed attempt submissions first
+    for (const attempt of userData.failedAttempts) {
+      await prisma.submission.create({
+        data: {
+          code: `// ${users[userData.userIndex].name} - ${contest2ProblemsList[attempt.problemIndex].problem.title} - ${attempt.status}\n#include <bits/stdc++.h>\nusing namespace std;\nint main() { /* ${attempt.status} */ return 0; }`,
+          languageId: languages[0].id,
+          status: attempt.status as any,
+          userId: users[userData.userIndex].id,
+          problemId: contest2ProblemsList[attempt.problemIndex].problem.id,
+          contestId: contest2.id,
+          consumedTime:
+            attempt.status === 'TIME_LIMIT_EXCEEDED'
+              ? 2000
+              : Math.floor(Math.random() * 500) + 100,
+          consumedMemory: Math.floor(Math.random() * 128) + 32,
+          submittedAt: new Date(now.getTime() - attempt.minutesAgo * 60 * 1000),
+        },
+      });
+    }
+
+    // Create ACCEPTED submissions
+    for (const solved of userData.solvedProblems) {
+      await prisma.submission.create({
+        data: {
+          code: `// ${users[userData.userIndex].name} - ${contest2ProblemsList[solved.problemIndex].problem.title} - ACCEPTED\n#include <bits/stdc++.h>\nusing namespace std;\nint main() { /* AC - ${contest2ProblemsList[solved.problemIndex].points} points */ return 0; }`,
+          languageId: languages[0].id,
+          status: 'ACCEPTED',
+          userId: users[userData.userIndex].id,
+          problemId: contest2ProblemsList[solved.problemIndex].problem.id,
+          contestId: contest2.id,
+          consumedTime: Math.floor(Math.random() * 400) + 50,
+          consumedMemory: Math.floor(Math.random() * 100) + 20,
+          submittedAt: new Date(now.getTime() - solved.minutesAgo * 60 * 1000),
+        },
+      });
+    }
+
+    // Calculate total score from solved problems
+    const totalScore = userData.solvedProblems.reduce(
+      (sum, solved) => sum + contest2ProblemsList[solved.problemIndex].points,
+      0,
+    );
+
+    // Find last submission time (minimum minutesAgo = most recent)
+    const allSubmissions = [
+      ...userData.solvedProblems.map((s) => s.minutesAgo),
+      ...userData.failedAttempts.map((a) => a.minutesAgo),
+    ];
+    const lastSubmitMinutesAgo = Math.min(...allSubmissions);
+
+    // Create participant with calculated score
     await prisma.contestParticipant.create({
       data: {
         contestId: contest2.id,
-        userId: user.id,
-        totalScore: Math.floor(Math.random() * 400),
+        userId: users[userData.userIndex].id,
+        totalScore: totalScore,
         lastSubmitTime: new Date(
-          now.getTime() - Math.random() * 60 * 60 * 1000,
+          now.getTime() - lastSubmitMinutesAgo * 60 * 1000,
         ),
       },
     });
   }
+
+  console.log(
+    '📊 Created Contest 2 submissions and participants with calculated scores',
+  );
 
   // Contest 3: Finished Contest
   const contest3 = await prisma.contest.create({
@@ -717,21 +1001,179 @@ async function main() {
     }),
   ]);
 
-  // Add participants to finished contest
-  for (const user of users) {
+  // Contest 3 problems with points:
+  // Problem 0 (problems[0]): 100 points - Two Sum
+  // Problem 1 (problems[1]): 100 points - Valid Parentheses
+  // Problem 2 (problems[2]): 100 points - Merge Two Sorted Lists
+  // Total: 300 points
+
+  const contest3ProblemsList = [
+    { problem: problems[0], points: 100 },
+    { problem: problems[1], points: 100 },
+    { problem: problems[2], points: 100 },
+  ];
+
+  // Contest 3 happened 1 week ago, so minutesOffset is from contest start time
+  const contest3StartTime = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+
+  const contest3UserSolutions: {
+    userIndex: number;
+    solvedProblems: { problemIndex: number; minutesOffset: number }[];
+    failedAttempts: {
+      problemIndex: number;
+      status: string;
+      minutesOffset: number;
+    }[];
+  }[] = [
+    {
+      // Jane - 300 points (all 3 problems) - RANK 1 (earlier)
+      userIndex: 1,
+      solvedProblems: [
+        { problemIndex: 0, minutesOffset: 15 },
+        { problemIndex: 1, minutesOffset: 35 },
+        { problemIndex: 2, minutesOffset: 70 },
+      ],
+      failedAttempts: [],
+    },
+    {
+      // John - 300 points (all 3 problems) - RANK 2 (later than Jane)
+      userIndex: 0,
+      solvedProblems: [
+        { problemIndex: 0, minutesOffset: 20 },
+        { problemIndex: 1, minutesOffset: 45 },
+        { problemIndex: 2, minutesOffset: 85 },
+      ],
+      failedAttempts: [
+        { problemIndex: 2, status: 'WRONG_ANSWER', minutesOffset: 75 },
+      ],
+    },
+    {
+      // Alice - 200 points (problems 0,1) - RANK 3
+      userIndex: 3,
+      solvedProblems: [
+        { problemIndex: 0, minutesOffset: 18 },
+        { problemIndex: 1, minutesOffset: 50 },
+      ],
+      failedAttempts: [
+        { problemIndex: 2, status: 'TIME_LIMIT_EXCEEDED', minutesOffset: 65 },
+        { problemIndex: 2, status: 'WRONG_ANSWER', minutesOffset: 80 },
+      ],
+    },
+    {
+      // Bob - 200 points (problems 0,1) - RANK 4 (later than Alice)
+      userIndex: 2,
+      solvedProblems: [
+        { problemIndex: 0, minutesOffset: 25 },
+        { problemIndex: 1, minutesOffset: 60 },
+      ],
+      failedAttempts: [
+        { problemIndex: 2, status: 'RUNTIME_ERROR', minutesOffset: 90 },
+      ],
+    },
+    {
+      // David - 200 points (problems 0,2) - RANK 5
+      userIndex: 5,
+      solvedProblems: [
+        { problemIndex: 0, minutesOffset: 22 },
+        { problemIndex: 2, minutesOffset: 95 },
+      ],
+      failedAttempts: [
+        { problemIndex: 1, status: 'WRONG_ANSWER', minutesOffset: 40 },
+        { problemIndex: 1, status: 'WRONG_ANSWER', minutesOffset: 55 },
+      ],
+    },
+    {
+      // Emma - 100 points (problem 0 only) - RANK 6
+      userIndex: 6,
+      solvedProblems: [{ problemIndex: 0, minutesOffset: 28 }],
+      failedAttempts: [
+        { problemIndex: 1, status: 'COMPILATION_ERROR', minutesOffset: 45 },
+        { problemIndex: 2, status: 'TIME_LIMIT_EXCEEDED', minutesOffset: 70 },
+      ],
+    },
+    {
+      // Charlie - 100 points (problem 1 only) - RANK 7
+      userIndex: 4,
+      solvedProblems: [{ problemIndex: 1, minutesOffset: 100 }],
+      failedAttempts: [
+        { problemIndex: 0, status: 'WRONG_ANSWER', minutesOffset: 30 },
+        { problemIndex: 0, status: 'WRONG_ANSWER', minutesOffset: 50 },
+        { problemIndex: 1, status: 'WRONG_ANSWER', minutesOffset: 80 },
+      ],
+    },
+  ];
+
+  // Create submissions and participants for Contest 3
+  for (const userData of contest3UserSolutions) {
+    // Create failed attempt submissions
+    for (const attempt of userData.failedAttempts) {
+      await prisma.submission.create({
+        data: {
+          code: `// ${users[userData.userIndex].name} - ${contest3ProblemsList[attempt.problemIndex].problem.title} - ${attempt.status}\n#include <bits/stdc++.h>\nusing namespace std;\nint main() { /* ${attempt.status} */ return 0; }`,
+          languageId: languages[0].id,
+          status: attempt.status as any,
+          userId: users[userData.userIndex].id,
+          problemId: contest3ProblemsList[attempt.problemIndex].problem.id,
+          contestId: contest3.id,
+          consumedTime:
+            attempt.status === 'TIME_LIMIT_EXCEEDED'
+              ? 2000
+              : Math.floor(Math.random() * 500) + 100,
+          consumedMemory: Math.floor(Math.random() * 128) + 32,
+          submittedAt: new Date(
+            contest3StartTime + attempt.minutesOffset * 60 * 1000,
+          ),
+        },
+      });
+    }
+
+    // Create ACCEPTED submissions
+    for (const solved of userData.solvedProblems) {
+      await prisma.submission.create({
+        data: {
+          code: `// ${users[userData.userIndex].name} - ${contest3ProblemsList[solved.problemIndex].problem.title} - ACCEPTED\n#include <bits/stdc++.h>\nusing namespace std;\nint main() { /* AC - ${contest3ProblemsList[solved.problemIndex].points} points */ return 0; }`,
+          languageId: languages[0].id,
+          status: 'ACCEPTED',
+          userId: users[userData.userIndex].id,
+          problemId: contest3ProblemsList[solved.problemIndex].problem.id,
+          contestId: contest3.id,
+          consumedTime: Math.floor(Math.random() * 400) + 50,
+          consumedMemory: Math.floor(Math.random() * 100) + 20,
+          submittedAt: new Date(
+            contest3StartTime + solved.minutesOffset * 60 * 1000,
+          ),
+        },
+      });
+    }
+
+    // Calculate total score
+    const totalScore = userData.solvedProblems.reduce(
+      (sum, solved) => sum + contest3ProblemsList[solved.problemIndex].points,
+      0,
+    );
+
+    // Find last submission time (maximum minutesOffset = most recent in contest)
+    const allSubmissions = [
+      ...userData.solvedProblems.map((s) => s.minutesOffset),
+      ...userData.failedAttempts.map((a) => a.minutesOffset),
+    ];
+    const lastSubmitMinutesOffset = Math.max(...allSubmissions);
+
     await prisma.contestParticipant.create({
       data: {
         contestId: contest3.id,
-        userId: user.id,
-        totalScore: Math.floor(Math.random() * 300),
+        userId: users[userData.userIndex].id,
+        totalScore: totalScore,
         lastSubmitTime: new Date(
-          now.getTime() -
-            7 * 24 * 60 * 60 * 1000 +
-            Math.random() * 2 * 60 * 60 * 1000,
+          contest3StartTime + lastSubmitMinutesOffset * 60 * 1000,
         ),
       },
     });
   }
+
+  console.log(
+    '📊 Created Contest 3 submissions and participants with calculated scores',
+  );
 
   // Contest 4: Private Contest
   const contest4 = await prisma.contest.create({
@@ -879,9 +1321,411 @@ async function main() {
     });
   }
 
-  console.log('🏆 Created 5 contests');
+  // Contest 6: Private Running Contest
+  const contest6 = await prisma.contest.create({
+    data: {
+      title: 'HUST Code Private Challenge',
+      description:
+        'An exclusive private contest currently running. Only invited members can participate.\n\n## Features:\n- Private leaderboard\n- Real-time ranking\n- Exclusive problems',
+      startTime: new Date(now.getTime() - 2 * 60 * 60 * 1000), // Started 2 hours ago
+      endTime: new Date(now.getTime() + 4 * 60 * 60 * 1000), // Ends in 4 hours
+      duration: 360, // 6 hours
+      status: ContestStatus.RUNNING,
+      isPublic: false,
+      maxScore: 400,
+      createdById: admin.id,
+    },
+  });
 
-  // Create some sample submissions
+  // Add problems to contest 6
+  await Promise.all([
+    prisma.contestProblem.create({
+      data: {
+        contestId: contest6.id,
+        problemId: problems[5].id,
+        order: 1,
+        points: 100,
+      },
+    }),
+    prisma.contestProblem.create({
+      data: {
+        contestId: contest6.id,
+        problemId: problems[7].id,
+        order: 2,
+        points: 100,
+      },
+    }),
+    prisma.contestProblem.create({
+      data: {
+        contestId: contest6.id,
+        problemId: problems[9].id,
+        order: 3,
+        points: 100,
+      },
+    }),
+    prisma.contestProblem.create({
+      data: {
+        contestId: contest6.id,
+        problemId: contestOnlyProblems[1].id,
+        order: 4,
+        points: 100,
+      },
+    }),
+  ]);
+
+  // Add invitations for private running contest
+  for (const user of [users[0], users[1], users[2], users[3]]) {
+    await prisma.contestInvitation.create({
+      data: {
+        contestId: contest6.id,
+        userId: user.id,
+      },
+    });
+  }
+
+  // Contest 6 problems with points:
+  // Problem 0 (problems[5]): 100 points
+  // Problem 1 (problems[7]): 100 points
+  // Problem 2 (problems[9]): 100 points
+  // Problem 3 (contestOnlyProblems[1]): 100 points
+  // Total: 400 points
+
+  const contest6ProblemsList = [
+    { problem: problems[5], points: 100 },
+    { problem: problems[7], points: 100 },
+    { problem: problems[9], points: 100 },
+    { problem: contestOnlyProblems[1], points: 100 },
+  ];
+
+  const contest6UserSolutions: {
+    userIndex: number;
+    solvedProblems: { problemIndex: number; minutesAgo: number }[];
+    failedAttempts: {
+      problemIndex: number;
+      status: string;
+      minutesAgo: number;
+    }[];
+  }[] = [
+    {
+      // Jane - 300 points (problems 0,1,2) - RANK 1
+      userIndex: 1,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 90 },
+        { problemIndex: 1, minutesAgo: 60 },
+        { problemIndex: 2, minutesAgo: 30 },
+      ],
+      failedAttempts: [
+        { problemIndex: 3, status: 'WRONG_ANSWER', minutesAgo: 45 },
+      ],
+    },
+    {
+      // Alice - 200 points (problems 0,1) - RANK 2
+      userIndex: 3,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 85 },
+        { problemIndex: 1, minutesAgo: 20 },
+      ],
+      failedAttempts: [
+        { problemIndex: 2, status: 'TIME_LIMIT_EXCEEDED', minutesAgo: 50 },
+        { problemIndex: 2, status: 'WRONG_ANSWER', minutesAgo: 35 },
+      ],
+    },
+    {
+      // John - 200 points (problems 0,2) - RANK 3 (later than Alice)
+      userIndex: 0,
+      solvedProblems: [
+        { problemIndex: 0, minutesAgo: 80 },
+        { problemIndex: 2, minutesAgo: 45 },
+      ],
+      failedAttempts: [
+        { problemIndex: 1, status: 'RUNTIME_ERROR', minutesAgo: 65 },
+      ],
+    },
+    {
+      // Bob - 100 points (problem 0 only) - RANK 4
+      userIndex: 2,
+      solvedProblems: [{ problemIndex: 0, minutesAgo: 60 }],
+      failedAttempts: [
+        { problemIndex: 1, status: 'WRONG_ANSWER', minutesAgo: 75 },
+        { problemIndex: 1, status: 'COMPILATION_ERROR', minutesAgo: 70 },
+      ],
+    },
+  ];
+
+  // Create submissions and participants for Contest 6
+  for (const userData of contest6UserSolutions) {
+    for (const attempt of userData.failedAttempts) {
+      await prisma.submission.create({
+        data: {
+          code: `// ${users[userData.userIndex].name} - ${contest6ProblemsList[attempt.problemIndex].problem.title} - ${attempt.status}\n#include <bits/stdc++.h>\nusing namespace std;\nint main() { /* ${attempt.status} */ return 0; }`,
+          languageId: languages[0].id,
+          status: attempt.status as any,
+          userId: users[userData.userIndex].id,
+          problemId: contest6ProblemsList[attempt.problemIndex].problem.id,
+          contestId: contest6.id,
+          consumedTime:
+            attempt.status === 'TIME_LIMIT_EXCEEDED'
+              ? 2000
+              : Math.floor(Math.random() * 500) + 100,
+          consumedMemory: Math.floor(Math.random() * 128) + 32,
+          submittedAt: new Date(now.getTime() - attempt.minutesAgo * 60 * 1000),
+        },
+      });
+    }
+
+    for (const solved of userData.solvedProblems) {
+      await prisma.submission.create({
+        data: {
+          code: `// ${users[userData.userIndex].name} - ${contest6ProblemsList[solved.problemIndex].problem.title} - ACCEPTED\n#include <bits/stdc++.h>\nusing namespace std;\nint main() { /* AC - ${contest6ProblemsList[solved.problemIndex].points} points */ return 0; }`,
+          languageId: languages[0].id,
+          status: 'ACCEPTED',
+          userId: users[userData.userIndex].id,
+          problemId: contest6ProblemsList[solved.problemIndex].problem.id,
+          contestId: contest6.id,
+          consumedTime: Math.floor(Math.random() * 400) + 50,
+          consumedMemory: Math.floor(Math.random() * 100) + 20,
+          submittedAt: new Date(now.getTime() - solved.minutesAgo * 60 * 1000),
+        },
+      });
+    }
+
+    const totalScore = userData.solvedProblems.reduce(
+      (sum, solved) => sum + contest6ProblemsList[solved.problemIndex].points,
+      0,
+    );
+
+    const allSubmissions = [
+      ...userData.solvedProblems.map((s) => s.minutesAgo),
+      ...userData.failedAttempts.map((a) => a.minutesAgo),
+    ];
+    const lastSubmitMinutesAgo = Math.min(...allSubmissions);
+
+    await prisma.contestParticipant.create({
+      data: {
+        contestId: contest6.id,
+        userId: users[userData.userIndex].id,
+        totalScore: totalScore,
+        lastSubmitTime: new Date(
+          now.getTime() - lastSubmitMinutesAgo * 60 * 1000,
+        ),
+      },
+    });
+  }
+
+  console.log(
+    '📊 Created Contest 6 submissions and participants with calculated scores',
+  );
+
+  // Contest 7: Private Finished Contest
+  const contest7 = await prisma.contest.create({
+    data: {
+      title: 'HUST Code Elite Cup 2025',
+      description:
+        'A completed private contest for elite programmers.\n\n## Results:\nThis contest has ended. Final rankings are now available.',
+      startTime: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), // 2 weeks ago
+      endTime: new Date(
+        now.getTime() - 14 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000,
+      ), // +3 hours
+      duration: 180, // 3 hours
+      status: ContestStatus.FINISHED,
+      isPublic: false,
+      maxScore: 500,
+      createdById: admin.id,
+    },
+  });
+
+  // Add problems to contest 7
+  await Promise.all([
+    prisma.contestProblem.create({
+      data: {
+        contestId: contest7.id,
+        problemId: problems[4].id,
+        order: 1,
+        points: 100,
+      },
+    }),
+    prisma.contestProblem.create({
+      data: {
+        contestId: contest7.id,
+        problemId: problems[6].id,
+        order: 2,
+        points: 100,
+      },
+    }),
+    prisma.contestProblem.create({
+      data: {
+        contestId: contest7.id,
+        problemId: problems[10].id,
+        order: 3,
+        points: 150,
+      },
+    }),
+    prisma.contestProblem.create({
+      data: {
+        contestId: contest7.id,
+        problemId: contestOnlyProblems[2].id,
+        order: 4,
+        points: 150,
+      },
+    }),
+  ]);
+
+  // Add invitations for private finished contest
+  for (const user of [users[1], users[3], users[5], users[8]]) {
+    await prisma.contestInvitation.create({
+      data: {
+        contestId: contest7.id,
+        userId: user.id,
+      },
+    });
+  }
+
+  // Contest 7 problems with points:
+  // Problem 0 (problems[4]): 100 points
+  // Problem 1 (problems[6]): 100 points
+  // Problem 2 (problems[10]): 150 points
+  // Problem 3 (contestOnlyProblems[2]): 150 points
+  // Total: 500 points
+
+  const contest7ProblemsList = [
+    { problem: problems[4], points: 100 },
+    { problem: problems[6], points: 100 },
+    { problem: problems[10], points: 150 },
+    { problem: contestOnlyProblems[2], points: 150 },
+  ];
+
+  const contest7StartTime = now.getTime() - 14 * 24 * 60 * 60 * 1000;
+
+  const contest7UserSolutions: {
+    userIndex: number;
+    solvedProblems: { problemIndex: number; minutesOffset: number }[];
+    failedAttempts: {
+      problemIndex: number;
+      status: string;
+      minutesOffset: number;
+    }[];
+  }[] = [
+    {
+      // David - 500 points (all 4 problems) - RANK 1 Champion
+      userIndex: 5,
+      solvedProblems: [
+        { problemIndex: 0, minutesOffset: 25 },
+        { problemIndex: 1, minutesOffset: 55 },
+        { problemIndex: 2, minutesOffset: 100 },
+        { problemIndex: 3, minutesOffset: 140 },
+      ],
+      failedAttempts: [],
+    },
+    {
+      // Jane - 350 points (problems 0,1,2 = 100+100+150) - RANK 2
+      userIndex: 1,
+      solvedProblems: [
+        { problemIndex: 0, minutesOffset: 20 },
+        { problemIndex: 1, minutesOffset: 50 },
+        { problemIndex: 2, minutesOffset: 110 },
+      ],
+      failedAttempts: [
+        { problemIndex: 3, status: 'WRONG_ANSWER', minutesOffset: 130 },
+        { problemIndex: 3, status: 'TIME_LIMIT_EXCEEDED', minutesOffset: 150 },
+      ],
+    },
+    {
+      // Alice - 250 points (problems 0,2 = 100+150) - RANK 3
+      userIndex: 3,
+      solvedProblems: [
+        { problemIndex: 0, minutesOffset: 30 },
+        { problemIndex: 2, minutesOffset: 120 },
+      ],
+      failedAttempts: [
+        { problemIndex: 1, status: 'WRONG_ANSWER', minutesOffset: 60 },
+        { problemIndex: 3, status: 'RUNTIME_ERROR', minutesOffset: 145 },
+      ],
+    },
+    {
+      // Grace - 200 points (problems 0,1 = 100+100) - RANK 4
+      userIndex: 8,
+      solvedProblems: [
+        { problemIndex: 0, minutesOffset: 35 },
+        { problemIndex: 1, minutesOffset: 90 },
+      ],
+      failedAttempts: [
+        { problemIndex: 2, status: 'TIME_LIMIT_EXCEEDED', minutesOffset: 130 },
+        { problemIndex: 2, status: 'WRONG_ANSWER', minutesOffset: 160 },
+      ],
+    },
+  ];
+
+  // Create submissions and participants for Contest 7
+  for (const userData of contest7UserSolutions) {
+    for (const attempt of userData.failedAttempts) {
+      await prisma.submission.create({
+        data: {
+          code: `// ${users[userData.userIndex].name} - ${contest7ProblemsList[attempt.problemIndex].problem.title} - ${attempt.status}\n#include <bits/stdc++.h>\nusing namespace std;\nint main() { /* ${attempt.status} */ return 0; }`,
+          languageId: languages[0].id,
+          status: attempt.status as any,
+          userId: users[userData.userIndex].id,
+          problemId: contest7ProblemsList[attempt.problemIndex].problem.id,
+          contestId: contest7.id,
+          consumedTime:
+            attempt.status === 'TIME_LIMIT_EXCEEDED'
+              ? 2000
+              : Math.floor(Math.random() * 500) + 100,
+          consumedMemory: Math.floor(Math.random() * 128) + 32,
+          submittedAt: new Date(
+            contest7StartTime + attempt.minutesOffset * 60 * 1000,
+          ),
+        },
+      });
+    }
+
+    for (const solved of userData.solvedProblems) {
+      await prisma.submission.create({
+        data: {
+          code: `// ${users[userData.userIndex].name} - ${contest7ProblemsList[solved.problemIndex].problem.title} - ACCEPTED\n#include <bits/stdc++.h>\nusing namespace std;\nint main() { /* AC - ${contest7ProblemsList[solved.problemIndex].points} points */ return 0; }`,
+          languageId: languages[0].id,
+          status: 'ACCEPTED',
+          userId: users[userData.userIndex].id,
+          problemId: contest7ProblemsList[solved.problemIndex].problem.id,
+          contestId: contest7.id,
+          consumedTime: Math.floor(Math.random() * 400) + 50,
+          consumedMemory: Math.floor(Math.random() * 100) + 20,
+          submittedAt: new Date(
+            contest7StartTime + solved.minutesOffset * 60 * 1000,
+          ),
+        },
+      });
+    }
+
+    const totalScore = userData.solvedProblems.reduce(
+      (sum, solved) => sum + contest7ProblemsList[solved.problemIndex].points,
+      0,
+    );
+
+    const allSubmissions = [
+      ...userData.solvedProblems.map((s) => s.minutesOffset),
+      ...userData.failedAttempts.map((a) => a.minutesOffset),
+    ];
+    const lastSubmitMinutesOffset = Math.max(...allSubmissions);
+
+    await prisma.contestParticipant.create({
+      data: {
+        contestId: contest7.id,
+        userId: users[userData.userIndex].id,
+        totalScore: totalScore,
+        lastSubmitTime: new Date(
+          contest7StartTime + lastSubmitMinutesOffset * 60 * 1000,
+        ),
+      },
+    });
+  }
+
+  console.log(
+    '📊 Created Contest 7 submissions and participants with calculated scores',
+  );
+
+  console.log('🏆 Created 7 contests (3 public, 4 private)');
+
+  // Create some sample submissions (without contest)
   const statuses = [
     'ACCEPTED',
     'WRONG_ANSWER',
@@ -912,7 +1756,7 @@ async function main() {
       },
     });
   }
-  console.log('📤 Created 20 sample submissions');
+  console.log('📤 Created 20 sample submissions (no contest)');
 
   // Create some problem comments
   for (let i = 0; i < 10; i++) {
@@ -948,8 +1792,8 @@ async function main() {
   console.log(`   - 1 admin + ${users.length} users`);
   console.log(`   - ${problems.length} public problems`);
   console.log(`   - ${contestOnlyProblems.length} contest-only problems`);
-  console.log(`   - 5 contests (1 upcoming, 2 running, 1 finished, 1 private)`);
-  console.log(`   - 20 submissions`);
+  console.log(`   - 7 contests (3 public, 4 private)`);
+  console.log(`   - Submissions created based on solved problems`);
   console.log(`   - 10 comments`);
   console.log('\n🔐 Login credentials:');
   console.log('   Admin: admin@hustcode.com / password123');
