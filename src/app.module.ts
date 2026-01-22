@@ -7,6 +7,12 @@ import configuration from 'config/configuration';
 import { validationSchema } from 'config/validation';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
+import { ProblemModule } from './problem/problem.module';
+import { SubmissionModule } from './submission/submission.module';
+import { ProblemSubmissionModule } from './problem-submission/problem-submission.module';
+import { UploadTestcaseModule } from './upload-testcase/upload-testcase.module';
+import { LanguageModule } from './language/language.module';
+import { ContestModule } from './contest/contest.module';
 
 @Module({
   imports: [
@@ -18,6 +24,12 @@ import { UserModule } from './user/user.module';
     PrismaModule,
     AuthModule,
     UserModule,
+    ProblemModule,
+    SubmissionModule,
+    ProblemSubmissionModule,
+    UploadTestcaseModule,
+    LanguageModule,
+    ContestModule,
   ],
   controllers: [AppController],
   providers: [AppService],
