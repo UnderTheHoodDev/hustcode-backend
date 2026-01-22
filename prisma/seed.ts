@@ -33,7 +33,7 @@ async function main() {
 
   // Create Languages
   const languages = await Promise.all([
-    prisma.language.create({ data: { name: 'C++' } }),
+    prisma.language.create({ data: { name: 'Cpp' } }),
     prisma.language.create({ data: { name: 'Python' } }),
     prisma.language.create({ data: { name: 'Java' } }),
     prisma.language.create({ data: { name: 'JavaScript' } }),
